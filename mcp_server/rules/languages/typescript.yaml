@@ -1,0 +1,49 @@
+# TypeScript language rules
+language: typescript
+version_support: ["4.9", "5.0", "5.1", "5.2", "5.3", "5.4"]
+default_framework: jest
+
+test_file_conventions:
+  naming_pattern: "{module}.test.ts"
+  directory: "__tests__/ or co-located"
+  discovery: "jest testMatch"
+
+import_style: "import { fn } from './module'"
+
+assertion_style:
+  preferred: "expect(value).toBe(expected)"
+  fluent: "jest expect API"
+  matcher_libraries: ["jest", "@testing-library/jest-dom", "chai", "vitest"]
+
+mock_libraries: ["jest.mock", "ts-mockito", "sinon", "msw", "nock"]
+
+fixture_style: "beforeEach / beforeAll / afterEach / afterAll"
+
+async_support:
+  pattern: "async/await with jest async tests"
+  timeout: "jest.setTimeout(10000)"
+
+parametrize: "test.each`...` or describe.each"
+
+test_id_comment_style: |
+  /**
+   * Test ID: TC-REQ-001
+   * Why Generated: ...
+   * Requirement Mapping: US-001, AC-1.1
+   * How it Exercises: GIVEN ... WHEN ... THEN ...
+   * Coverage: branch coverage, validation logic
+   * Expected Outcome: returns 200, response body matches schema
+   * Gaps: does not test concurrent requests
+   * Meaningfulness: meaningful — directly validates AC-1.1
+   */
+
+coverage_tool: "jest --coverage (c8 / istanbul)"
+coverage_report_flag: "--coverage --coverageReporters=html,json,text"
+
+security_tools: ["semgrep", "eslint-plugin-security", "npm-audit"]
+type_checking: "tsc --strict"
+
+template_variables:
+  describe_block: "describe('{FeatureName}', () => {"
+  it_block: "it('{test description}', async () => {"
+  markers: ["@unit", "@integration", "@api", "@e2e", "@slow", "@security", "@performance"]

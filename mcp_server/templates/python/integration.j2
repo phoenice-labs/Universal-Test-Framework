@@ -1,0 +1,25 @@
+# =============================================================================
+# Test ID         : {{ test_id }}
+# Why Generated   : {{ why_generated }}
+# Requirement     : {{ requirement_mapping }}
+# How it Exercises:
+#   GIVEN {{ given }}
+#   WHEN  {{ when }}
+#   THEN  {{ then }}
+# Coverage        : {{ coverage_contribution }}
+# Expected Outcome: {{ expected_outcome }}
+# Gaps            : {{ gaps_missing }}
+# Meaningfulness  : {{ meaningfulness_check }}
+# =============================================================================
+@pytest.mark.integration
+def test_{{ func_name }}(db_session, client):
+    # ── GIVEN ────────────────────────────────────────────────────────────────
+    {{ given_code | default('# Seed the database with the minimal required fixtures') }}
+
+    # ── WHEN ─────────────────────────────────────────────────────────────────
+    result = {{ call_expression | default('service.process(input_data)') }}
+
+    # ── THEN ─────────────────────────────────────────────────────────────────
+    {{ assertion_code | default('assert result is not None, "Service call should return a result"') }}
+    # Verify side effects persisted
+    {{ side_effect_check | default('# db_session.refresh(entity); assert entity.field == expected_value') }}

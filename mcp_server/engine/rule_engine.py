@@ -20,7 +20,7 @@ from .contract_validator import validate_test_contract, validate_test_suite, Con
 from .template_renderer import render_test, render_suite_header, render_suite_footer
 from .framework_mapper import FrameworkMapping
 
-RULES_ROOT = Path(__file__).parent.parent.parent / "rules"
+RULES_ROOT = Path(__file__).parent.parent / "rules"
 
 
 # ─── Output models ───────────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ def _deep_merge(base: dict, override: dict) -> None:
             base[key] = val
 
 
-def _load_rules(mapping: FrameworkMapping, test_type: str) -> dict:
+def _load_rules(mapping: FrameworkMapping, test_type: str, cwd: Optional[Path] = None) -> dict:
     """Load and merge rules: core + language + framework + test-type + .utf/ project overrides."""
     contract = _load_yaml(RULES_ROOT / "core" / "test-contract.yaml")
     coverage = _load_yaml(RULES_ROOT / "core" / "coverage-rules.yaml")
@@ -107,8 +107,9 @@ def _load_rules(mapping: FrameworkMapping, test_type: str) -> dict:
         "test_type": test_type_rules,
     }
 
-    # Project-level overrides: merge any .utf/rules/*.yaml found in the CWD
-    utf_override_dir = Path.cwd() / ".utf" / "rules"
+    # Project-level overrides: merge any .utf/rules/*.yaml found in the caller's project root
+    project_root = cwd if cwd is not None else Path.cwd()
+    utf_override_dir = project_root / ".utf" / "rules"
     if utf_override_dir.exists():
         for override_file in sorted(utf_override_dir.glob("*.yaml")):
             override_data = _load_yaml(override_file)
@@ -391,7 +392,7 @@ def run_engine(
     )
 
     # 2. Load rules
-    rules = _load_rules(ctx.mapping, test_type)
+    rules = _load_rules(ctx.mapping, test_type, cwd=cwd)
 
     # 3. Get scenarios to generate
     scenarios = custom_scenarios or _get_scenarios_for_type(test_type)
@@ -706,3 +707,4 @@ def _suggest_missing_test_types(ctx: TestGenerationContext) -> list[str]:
         if any(kw in (ctx.requirements_text or "").lower() for kw in ["api", "endpoint", "http", "rest"]):
             suggestions.append("api")
     return suggestions
+

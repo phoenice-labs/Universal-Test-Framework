@@ -1,0 +1,66 @@
+# Playwright E2E framework rules
+framework: playwright
+language: ["typescript", "javascript", "python", "java"]
+version: ">=1.40"
+
+setup:
+  install_ts: "npm init playwright@latest"
+  install_python: "pip install playwright && playwright install"
+  config_file: "playwright.config.ts"
+
+test_structure:
+  typescript: "test('{description}', async ({ page }) => {"
+  python: "async def test_{name}(page: Page):"
+
+browsers: ["chromium", "firefox", "webkit"]
+devices: "playwright devices dictionary"
+
+locators:
+  preferred:
+    - "page.getByRole('button', { name: 'Submit' })"
+    - "page.getByLabel('Email')"
+    - "page.getByTestId('submit-btn')"
+    - "page.getByText('Welcome')"
+  avoid:
+    - "CSS selectors (fragile)"
+    - "XPath (fragile)"
+
+actions:
+  click: "await page.getByRole('button').click()"
+  fill: "await page.getByLabel('Email').fill('test@example.com')"
+  navigate: "await page.goto('/path')"
+  wait: "await page.waitForURL('/expected-path')"
+
+assertions:
+  url: "await expect(page).toHaveURL('/dashboard')"
+  title: "await expect(page).toHaveTitle('Dashboard')"
+  visible: "await expect(page.getByText('Success')).toBeVisible()"
+  text: "await expect(page.getByRole('heading')).toHaveText('Welcome')"
+  count: "await expect(page.getByRole('listitem')).toHaveCount(3)"
+
+network_interception:
+  mock: "await page.route('**/api/users', route => route.fulfill({ json: mockData }))"
+  wait: "const response = await page.waitForResponse('**/api/users')"
+
+fixtures:
+  builtin: ["page", "browser", "context", "browserName"]
+  custom: "test.extend({ loggedInPage: async ({ page }, use) => {"
+
+tracing:
+  record: "await context.tracing.start({ screenshots: true, snapshots: true })"
+  stop: "await context.tracing.stop({ path: 'trace.zip' })"
+
+contract_comment_template: |
+  /**
+   * Test ID: {test_id}
+   * Why Generated: {why_generated}
+   * Requirement Mapping: {requirement_mapping}
+   * How it Exercises:
+   *   GIVEN: {given}
+   *   WHEN: {when}
+   *   THEN: {then}
+   * Coverage: {coverage_contribution} (user journey)
+   * Expected Outcome: {expected_outcome}
+   * Gaps: {gaps_missing}
+   * Meaningfulness: {meaningfulness_check}
+   */

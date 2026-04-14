@@ -182,7 +182,8 @@ if ($Status) {
     Write-Host "  MCP registered (mcp.json)             : $(if ($hasMcpJson) {'YES — ' + $mcpMode} else {'NO'})" -ForegroundColor $(if ($hasMcpJson) {'Green'} else {'Red'})
     Write-Host "  Legacy mcp block in settings.json     : $(if ($hasLegacy) {'YES (run -Uninstall to clean)'} else {'NO (clean)'})" -ForegroundColor $(if ($hasLegacy) {'Yellow'} else {'Green'})
     Write-Host "  Global instructions (.instructions.md): $(if ($hasInstructions) {'YES'} else {'NO'})" -ForegroundColor $(if ($hasInstructions) {'Green'} else {'Red'})
-    Write-Host "  Prompt files copied ($promptCount / 7)         : $(if ($promptCount -eq 7) {'YES'} else {'PARTIAL ' + $promptCount + '/7'})" -ForegroundColor $(if ($promptCount -eq 7) {'Green'} else {'Yellow'})
+    $expectedPrompts = (Get-ChildItem (Join-Path $utfRoot "agent-customization\prompts") -Filter "*.prompt.md" -ErrorAction SilentlyContinue).Count
+    Write-Host "  Prompt files copied ($promptCount / $expectedPrompts)         : $(if ($promptCount -eq $expectedPrompts) {'YES'} else {'PARTIAL ' + $promptCount + '/' + $expectedPrompts})" -ForegroundColor $(if ($promptCount -eq $expectedPrompts) {'Green'} else {'Yellow'})
     Write-Host "  @utf VS Code extension installed      : $(if ($hasExt) {'YES'} else {'NO'})" -ForegroundColor $(if ($hasExt) {'Green'} else {'Yellow'})
     Write-Host "  Python venv present                   : $(if ($hasVenv) {'YES'} else {'NO'})" -ForegroundColor $(if ($hasVenv) {'Green'} else {'Yellow'})
     Write-Host "  uvx available (PyPI/no-clone mode)    : $(if ($hasUvx) {'YES'} else {'NO (install uv from https://docs.astral.sh/uv)'})" -ForegroundColor $(if ($hasUvx) {'Green'} else {'Yellow'})
@@ -293,25 +294,32 @@ if (-not $mcpData.ContainsKey("inputs"))   { $mcpData["inputs"]  = @() }
 
 if ($launchMode -eq "uvx") {
     # uvx mode: no hardcoded paths — works on any machine with uv installed
+    # cwd = ${workspaceFolder} ensures the SQLite registry lands in the
+    # developer's own project under <project>/.utf/utf.db (not the UTF install dir).
     $mcpEntry = @{
         type        = "stdio"
         command     = $uvxPath
         args        = @("--from", "universal-test-framework", "utf-server", "--transport", "stdio")
+        cwd         = '${workspaceFolder}'
         description = "Universal Test Framework — polyglot test generation with 8-section contract (uvx/PyPI)"
     }
     Write-Info "Mode: uvx — command: uvx --from universal-test-framework utf-server --transport stdio"
 } else {
-    # Local venv mode: use absolute path + PYTHONPATH
-    # cwd = ${workspaceFolder} so SQLite registry resolves to the open project dir
+    # Local venv mode: use absolute path + PYTHONPATH.
+    # cwd = ${workspaceFolder} so the SQLite registry and reports land in the
+    # developer's project under <project>/.utf/, not the UTF install directory.
     $mcpEntry = @{
         type        = "stdio"
         command     = $pythonPath
         args        = @("-m", "mcp_server.server", "--transport", "stdio")
-        cwd         = "`${workspaceFolder}"
+        cwd         = '${workspaceFolder}'
         description = "Universal Test Framework — polyglot test generation with 8-section contract"
-        env         = @{ PYTHONPATH = $utfRoot }
+        env         = @{
+            PYTHONPATH               = $utfRoot
+            FASTMCP_SHOW_SERVER_BANNER = "0"
+        }
     }
-    Write-Info "Mode: local venv — cwd: `${workspaceFolder} (SQLite per-project)"
+    Write-Info "Mode: local venv — cwd: `${workspaceFolder} (registry isolated per project)"
 }
 
 $mcpData["servers"][$ServerName] = $mcpEntry
@@ -557,7 +565,7 @@ Write-Host @"
 Write-Host "  UTF Root     : $utfRoot" -ForegroundColor White
 Write-Host "  Launch mode  : $launchMode$(if ($launchMode -eq 'uvx') {' (PyPI — no hardcoded paths)'} else {' (local venv)'})" -ForegroundColor White
 Write-Host "  mcp.json     : $mcpFile" -ForegroundColor White
-Write-Host "  SQLite cwd   : $(if ($launchMode -eq 'uvx') {'<workspaceFolder>/.utf/utf.db (auto)'} else {'${workspaceFolder}/.utf/utf.db'})" -ForegroundColor White
+Write-Host "  SQLite cwd   : `${workspaceFolder}/.utf/utf.db (auto, per-project)" -ForegroundColor White
 Write-Host "  Prompts dir  : $env:APPDATA\Code\User\prompts\" -ForegroundColor White
 if ($InitProject) {
     Write-Host "  Project      : $ProjectDir" -ForegroundColor White

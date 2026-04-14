@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "universal-test-framework"
-version = "1.0.2"
+version = "1.0.3"
 description = "Universal polyglot test generation framework with 8-section contract enforcement"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -56,6 +56,16 @@ utf-server = "mcp_server.server:cli"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["mcp_server*"]
+
+[tool.setuptools.package-data]
+"mcp_server" = [
+    "rules/**/*.yaml",
+    "rules/**/*.yml",
+    "templates/**/*.j2",
+    "templates/**/*.jinja2",
+    "templates/**/*.py.j2",
+    "templates/**/*",
+]
 
 [tool.ruff]
 line-length = 100

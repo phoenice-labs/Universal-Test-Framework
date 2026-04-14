@@ -1,0 +1,63 @@
+# JUnit 5 framework rules
+framework: junit5
+language: java
+version: "5.9+"
+
+setup:
+  build_tool_maven: |
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+  build_tool_gradle: "testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'"
+
+test_structure:
+  basic: "@Test public void test{Name}()"
+  display_name: "@DisplayName('human readable description')"
+  nested: "@Nested class {SubFeature}Tests {"
+  disabled: "@Disabled('reason')"
+
+lifecycle:
+  setup: ["@BeforeEach", "@BeforeAll (static)"]
+  teardown: ["@AfterEach", "@AfterAll (static)"]
+
+assertions:
+  library: "AssertJ (preferred) or JUnit 5 built-in"
+  assertj: "assertThat(actual).isEqualTo(expected).as('description')"
+  builtin: "assertEquals(expected, actual, 'message')"
+  exception: "assertThrows(ExceptionType.class, () -> { code; })"
+  timeout: "assertTimeout(Duration.ofSeconds(5), () -> { code; })"
+
+mocking:
+  library: "Mockito 5.x"
+  mock: "@Mock private Service service;"
+  setup: "@ExtendWith(MockitoExtension.class)"
+  stub: "when(mock.method(arg)).thenReturn(value)"
+  verify: "verify(mock, times(1)).method(expectedArg)"
+  argument_captor: "ArgumentCaptor<Type> captor = ArgumentCaptor.forClass(Type.class)"
+
+parametrize:
+  value_source: "@ParameterizedTest @ValueSource(ints = {1, 2, 3})"
+  csv_source: "@ParameterizedTest @CsvSource({'1, 2', '3, 4'})"
+  method_source: "@ParameterizedTest @MethodSource('provideArguments')"
+
+extensions:
+  spring: "@SpringBootTest @AutoConfigureMockMvc"
+  testcontainers: "@Testcontainers @Container static ... = new PostgreSQLContainer<>()"
+
+contract_comment_template: |
+  /**
+   * Test ID: {test_id}
+   * Why Generated: {why_generated}
+   * Requirement Mapping: {requirement_mapping}
+   * How it Exercises:
+   *   GIVEN: {given}
+   *   WHEN: {when}
+   *   THEN: {then}
+   * Coverage: {coverage_contribution}
+   * Expected Outcome: {expected_outcome}
+   * Gaps: {gaps_missing}
+   * Meaningfulness: {meaningfulness_check}
+   */

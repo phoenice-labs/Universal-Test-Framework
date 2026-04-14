@@ -92,6 +92,37 @@ def generate_report(
                 "section_scores": json.loads(row["section_scores"]) if row.get("section_scores") else {},
             }
 
+    # For imported tests, synthesize exec_map entries from registry status so
+    # the reporter can show PASSED / FAILED / SKIPPED badges correctly.
+    # Handles both new JSON format (is_imported=true) and old plain-text format
+    # (detected by status=executed/failed/skipped + TC-EXEC- prefix).
+    for r in records:
+        if r.test_id in exec_map:
+            continue
+        reg_status = getattr(r, "status", "") or ""
+        try:
+            data = json.loads(r.content or "{}")
+        except Exception:
+            data = {}
+        is_imported = data.get("is_imported") or (
+            reg_status in ("executed", "failed", "skipped")
+            and r.test_id.startswith("TC-EXEC-")
+        )
+        if is_imported:
+            exec_status = (
+                "passed"  if reg_status == "executed"
+                else "failed"  if reg_status == "failed"
+                else "skipped" if reg_status == "skipped"
+                else None
+            )
+            exec_map[r.test_id] = {
+                "test_id":         r.test_id,
+                "exec_status":     exec_status,
+                "exec_duration_s": data.get("duration_seconds", 0.0),
+                "contract_score":  None,
+                "section_scores":  {},
+            }
+
     execution_results = list(exec_map.values()) if exec_map else None
 
     # Build reporter
@@ -186,17 +217,66 @@ class _SyntheticTest:
         except Exception:
             data = {}
         self.test_id = record.test_id
-        self.why_generated = data.get("why_generated", "")
-        self.requirement_mapping = data.get("requirement_mapping", "")
-        self.how_it_exercises = data.get("how_it_exercises", "")
-        self.coverage_contribution = data.get("coverage_contribution", "")
-        self.expected_outcome = data.get("expected_outcome", "")
-        self.gaps_missing = data.get("gaps_missing", "")
-        self.meaningfulness_check = data.get("meaningfulness_check", "")
-        self.rendered_code = data.get("rendered_code", "")
-        self.validation_score = record.score or 0.0
-        self.validation_passed = (record.score or 0.0) >= 0.85
-        self.validation_violations = data.get("validation_violations", [])
+        self.why_generated          = data.get("why_generated", "")
+        self.requirement_mapping    = data.get("requirement_mapping", "")
+        self.how_it_exercises       = data.get("how_it_exercises", "")
+        self.coverage_contribution  = data.get("coverage_contribution", "")
+        self.expected_outcome       = data.get("expected_outcome", "")
+        self.gaps_missing           = data.get("gaps_missing", "")
+        self.meaningfulness_check   = data.get("meaningfulness_check", "")
+        self.rendered_code          = data.get("rendered_code", "")
+        self.validation_score       = record.score or 0.0
+        self.validation_passed      = (record.score or 0.0) >= 0.85
+        self.validation_violations  = data.get("validation_violations", [])
+
+        # Detect imported tests.
+        # New format: JSON with "is_imported": true.
+        # Old format (backward compat): plain text "Imported from ..." with
+        #   status=executed|failed|skipped and test_id starting with "TC-EXEC-".
+        reg_status = getattr(record, "status", "") or ""
+        is_exec_status = reg_status in ("executed", "failed", "skipped")
+        old_format_import = (
+            not data.get("is_imported")
+            and is_exec_status
+            and record.test_id.startswith("TC-EXEC-")
+        )
+
+        self.is_imported            = bool(data.get("is_imported", False)) or old_format_import
+        self.imported_from          = data.get("imported_from", "")
+        self.failure_message        = data.get("failure_message", "")
+
+        if old_format_import:
+            # Parse classname + raw_name from old plain-text content
+            # Format: "Imported from results.xml: test_raw_name"
+            raw_content = (record.content or "").strip()
+            raw_name = raw_content.split(": ", 1)[-1].split("\n")[0].strip() if ": " in raw_content else ""
+            if not self.imported_from:
+                # Extract source filename: "Imported from XYZ.xml: ..."
+                parts = raw_content.split("from ", 1)
+                self.imported_from = parts[1].split(":")[0].strip() if len(parts) > 1 else ""
+            # Derive classname from TC-EXEC- id: TC-EXEC-pkg_module_TestClass_method
+            # The ID is: TC-EXEC-<sanitized_classname>_<method>
+            # Best effort: extract classname from the ID
+            suffix = record.test_id[len("TC-EXEC-"):]
+            # Try splitting on known class patterns (Test*) within the suffix
+            parts = suffix.rsplit("_", 1)
+            classname = parts[0].replace("_", ".") if parts else ""
+            self.raw_name  = raw_name or (parts[1] if len(parts) > 1 else suffix)
+            self.classname = classname
+        else:
+            self.raw_name  = data.get("raw_name", "")
+            self.classname = data.get("classname", "")
+        self.exec_status_import     = data.get("exec_status_import", reg_status)
+
+        # Human-readable display label for the test
+        if self.is_imported:
+            self.display_name = (
+                f"{self.classname}::{self.raw_name}"
+                if self.classname and self.raw_name
+                else self.raw_name or self.test_id
+            )
+        else:
+            self.display_name = self.test_id
 
 
 class _SyntheticEngineOutput:

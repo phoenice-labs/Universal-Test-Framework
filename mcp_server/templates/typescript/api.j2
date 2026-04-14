@@ -1,0 +1,26 @@
+/**
+ * Test ID        : {{ test_id }}
+ * Why Generated  : {{ why_generated }}
+ * Requirement    : {{ requirement_mapping }}
+ * How it Exercises:
+ *   GIVEN {{ given }}
+ *   WHEN  {{ when }}
+ *   THEN  {{ then }}
+ * Coverage       : {{ coverage_contribution }}
+ * Expected Outcome: {{ expected_outcome }}
+ * Gaps           : {{ gaps_missing }}
+ * Meaningfulness : {{ meaningfulness_check }}
+ */
+it('{{ test_display_name }}', async () => {
+  // ── GIVEN ──────────────────────────────────────────────────────────────
+  {{ given_code | default('// TODO: configure supertest app and request headers') }};
+
+  // ── WHEN ───────────────────────────────────────────────────────────────
+  const response = await request(app)
+    .get('/api/TODO') // TODO: replace method + path
+    .set('Content-Type', 'application/json');
+    // .send({ /* request body */ });
+
+  // ── THEN ───────────────────────────────────────────────────────────────
+  {{ assertion_code | default('expect(response.status).toBe(200);\n  expect(response.body).toBeDefined();') }}
+});

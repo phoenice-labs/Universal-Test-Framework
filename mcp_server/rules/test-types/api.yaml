@@ -1,0 +1,66 @@
+# API test type rules
+test_type: api
+description: "Tests that verify HTTP API endpoints — request/response contracts, authentication, error handling"
+
+scope:
+  target: "HTTP API endpoints (REST, GraphQL, gRPC)"
+  level: "Black-box or grey-box — test via HTTP, not internal methods"
+  database: "Allowed — use test database, seeded with known fixtures"
+  auth: "Must test authenticated and unauthenticated scenarios"
+
+characteristics:
+  contract_first: true         # Define expected request/response shapes first
+  schema_validation: true      # Validate response body against JSON schema
+  status_code_coverage: true   # All possible status codes must be tested
+
+coverage_targets:
+  endpoints: 100               # 100% of documented endpoints
+  http_methods: 100            # All methods (GET, POST, PUT, PATCH, DELETE) per endpoint
+  status_codes:                # All must be explicitly tested
+    success: ["200", "201", "204"]
+    client_error: ["400", "401", "403", "404", "409", "422"]
+    server_error: ["500", "503"]
+
+required_scenarios:
+  - happy_path_all_endpoints
+  - missing_required_fields           # 400/422
+  - invalid_field_types               # 400/422
+  - unauthenticated_access            # 401
+  - unauthorized_access               # 403 (wrong role/permission)
+  - resource_not_found                # 404
+  - duplicate_resource                # 409 (where applicable)
+  - pagination                        # if list endpoints exist
+  - filtering_and_sorting             # if supported
+  - rate_limit_exceeded               # 429 (if applicable)
+  - large_payload                     # Behavior under large input
+
+authentication_scenarios:
+  - no_token                          # 401
+  - expired_token                     # 401
+  - invalid_token                     # 401
+  - valid_token_wrong_role            # 403
+  - valid_token_correct_role          # 200/201
+
+tools:
+  python: ["pytest + httpx/requests", "schemathesis", "dredd"]
+  typescript: ["supertest", "axios + jest", "schemathesis"]
+  java: ["REST Assured", "Spring MockMvc"]
+  go: ["net/http/httptest", "resty"]
+
+response_validation:
+  schema: "Validate JSON schema on every response body"
+  headers: "Validate Content-Type, Cache-Control, security headers"
+  timing: "Assert response time < SLA threshold"
+
+security_checks_in_api_tests:
+  - "Verify no sensitive data in 4xx/5xx error responses"
+  - "Verify security headers present (X-Content-Type-Options, X-Frame-Options)"
+  - "Verify CORS policy correct"
+  - "Verify no stack traces in error responses"
+
+contract_additions:
+  endpoint_under_test: "Full URL pattern and HTTP method"
+  request_headers: "All headers sent, including auth"
+  request_body_schema: "JSON schema or example"
+  response_schema: "JSON schema for the response body"
+  sla_threshold_ms: "Maximum acceptable response time"

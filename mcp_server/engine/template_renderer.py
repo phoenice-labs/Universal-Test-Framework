@@ -19,7 +19,7 @@ except ImportError:
 from .context_resolver import TestGenerationContext, ExtractedRequirement, ExtractedSymbol
 from .framework_mapper import FrameworkMapping
 
-TEMPLATES_ROOT = Path(__file__).parent.parent.parent / "templates"
+TEMPLATES_ROOT = Path(__file__).parent.parent / "templates"
 
 # ─── Universal inline templates (used when Jinja2 templates not present) ────
 
@@ -277,3 +277,4 @@ def _snake(name: str) -> str:
 def _pascal(name: str) -> str:
     """Convert snake_case or mixed to PascalCase."""
     return "".join(word.capitalize() for word in re.split(r"[_\s\-]+", name))
+

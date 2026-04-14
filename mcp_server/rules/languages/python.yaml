@@ -1,0 +1,54 @@
+# Python language rules
+language: python
+version_support: ["3.9", "3.10", "3.11", "3.12"]
+default_framework: pytest
+
+test_file_conventions:
+  naming_pattern: "test_{module}.py"
+  directory: "tests/"
+  discovery: "pytest discovery (test_*.py / *_test.py)"
+
+import_style: "from module import function  # explicit imports"
+
+assertion_style:
+  preferred: "assert expression, 'message'"
+  fluent: "not standard"
+  matcher_libraries: ["pytest", "assertpy", "hamcrest"]
+
+mock_libraries: ["unittest.mock", "pytest-mock", "responses", "httpretty", "respx"]
+
+fixture_style: "@pytest.fixture"
+
+async_support:
+  library: "pytest-asyncio"
+  decorator: "@pytest.mark.asyncio"
+  pattern: "async def test_*"
+
+parametrize: "@pytest.mark.parametrize"
+
+test_id_comment_style: |
+  # Test ID: TC-REQ-001
+  # Why Generated: ...
+  # Requirement Mapping: US-001, AC-1.1
+  # How it Exercises: GIVEN ... WHEN ... THEN ...
+  # Coverage: branch coverage, validation logic
+  # Expected Outcome: returns 200, response body matches schema
+  # Gaps: does not test concurrent requests
+  # Meaningfulness: meaningful — directly validates AC-1.1
+
+docstring_style: |
+  """
+  Test ID: TC-REQ-001
+  ...
+  """
+
+coverage_tool: "pytest-cov"
+coverage_report_flag: "--cov={module} --cov-report=html --cov-branch"
+
+security_tools: ["bandit", "safety", "semgrep"]
+type_checking: "mypy"
+
+template_variables:
+  test_class_prefix: "Test"
+  fixture_scope_options: ["function", "class", "module", "session"]
+  markers: ["unit", "integration", "api", "e2e", "slow", "security", "performance"]

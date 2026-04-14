@@ -18,7 +18,7 @@ COPY pyproject.toml ./
 
 # Install deps into a prefix dir
 RUN pip install --no-cache-dir --prefix=/install \
-    fastmcp==2.3.4 \
+    "fastmcp>=3.0.0,<4.0.0" \
     pyyaml==6.0.2 \
     jinja2==3.1.4 \
     pydantic==2.7.1 \
@@ -44,9 +44,12 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 
 # Copy application code
-COPY --chown=utf:utf mcp-server/ ./mcp_server/
+COPY --chown=utf:utf mcp_server/ ./mcp_server/
 COPY --chown=utf:utf rules/ ./rules/
 COPY --chown=utf:utf templates/ ./templates/
+
+# Create the registry directory so the volume mount can write to it
+RUN mkdir -p /app/.utf && chown utf:utf /app/.utf
 
 # Switch to non-root user
 USER utf

@@ -107,16 +107,20 @@ export class UtfMcpClient {
       });
 
       // MCP stdio handshake: initialize → initialized → tools/call → exit
+      // FastMCP 3.x uses newline-delimited JSON (NDJSON), not Content-Length framing.
       proc.on("spawn", () => {
         const send = (msg: JsonRpcRequest | { jsonrpc: "2.0"; method: string; params: unknown }) => {
-          const json = JSON.stringify(msg);
-          proc.stdin.write(`Content-Length: ${Buffer.byteLength(json)}\r\n\r\n${json}`);
+          proc.stdin.write(JSON.stringify(msg) + "\n");
         };
+
+        // Capture IDs at call time so they stay stable across multiple callTool() invocations
+        const initId = this.requestId++;
+        const toolCallId = this.requestId++;
 
         // Step 1: initialize
         send({
           jsonrpc: "2.0",
-          id: this.requestId++,
+          id: initId,
           method: "initialize",
           params: {
             protocolVersion: "2024-11-05",
@@ -125,53 +129,44 @@ export class UtfMcpClient {
           },
         });
 
-        // Buffer and parse LSP-framed messages
+        // Buffer and parse NDJSON (one JSON object per line)
         let buffer = "";
-        const pendingMessages: JsonRpcResponse[] = [];
         let initialized = false;
 
         proc.stdout.removeAllListeners("data");
         proc.stdout.on("data", (chunk: Buffer) => {
           buffer += chunk.toString();
-          // Parse Content-Length framed messages
-          while (true) {
-            const headerEnd = buffer.indexOf("\r\n\r\n");
-            if (headerEnd === -1) break;
-            const header = buffer.slice(0, headerEnd);
-            const lengthMatch = header.match(/Content-Length:\s*(\d+)/i);
-            if (!lengthMatch) { buffer = buffer.slice(headerEnd + 4); continue; }
-            const length = parseInt(lengthMatch[1], 10);
-            const bodyStart = headerEnd + 4;
-            if (buffer.length < bodyStart + length) break;
-            const body = buffer.slice(bodyStart, bodyStart + length);
-            buffer = buffer.slice(bodyStart + length);
+          let newlineIdx: number;
+          while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, newlineIdx).trim();
+            buffer = buffer.slice(newlineIdx + 1);
+            if (!line) continue;
             try {
-              const msg = JSON.parse(body) as JsonRpcResponse;
-              pendingMessages.push(msg);
+              const msg = JSON.parse(line) as JsonRpcResponse;
               handleMessage(msg);
             } catch {
-              // non-JSON frame, skip
+              // non-JSON line, skip
             }
           }
         });
 
         const handleMessage = (msg: JsonRpcResponse) => {
           // Response to initialize
-          if (!initialized && msg.id === 1) {
+          if (!initialized && msg.id === initId) {
             initialized = true;
             // Send initialized notification
             send({ jsonrpc: "2.0", method: "notifications/initialized", params: {} });
             // Step 2: send tools/call
             send({
               jsonrpc: "2.0",
-              id: this.requestId++,
+              id: toolCallId,
               method: "tools/call",
               params: { name: toolName, arguments: args },
             });
             return;
           }
           // Response to tools/call
-          if (msg.id === 2) {
+          if (msg.id === toolCallId) {
             clearTimeout(timeout);
             proc.stdin.end();
             proc.kill();

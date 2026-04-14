@@ -1,0 +1,28 @@
+# =============================================================================
+# Test ID         : {{ test_id }}
+# Why Generated   : {{ why_generated }}
+# Requirement     : {{ requirement_mapping }}
+# How it Exercises:
+#   GIVEN {{ given }}
+#   WHEN  {{ when }}
+#   THEN  {{ then }}
+# Coverage        : {{ coverage_contribution }}
+# Expected Outcome: {{ expected_outcome }}
+# Gaps            : {{ gaps_missing }}
+# Meaningfulness  : {{ meaningfulness_check }}
+# =============================================================================
+@pytest.mark.security
+def test_{{ func_name }}_security(client):
+    # ── GIVEN ────────────────────────────────────────────────────────────────
+    # Prepare adversarial / malicious input (OWASP-aligned)
+    {{ given_code | default('malicious_payload = {"input": "<script>alert(1)</script>; DROP TABLE users; --"}') }}
+
+    # ── WHEN ─────────────────────────────────────────────────────────────────
+    response = {{ call_expression | default('client.post("/api/endpoint", json=malicious_payload)') }}
+
+    # ── THEN ─────────────────────────────────────────────────────────────────
+    # Security control MUST reject the adversarial input — never return 200 with exploit data
+    assert response.status_code in (400, 401, 403, 422), (
+        f"⚠️  Security control missing — adversarial input was accepted with status {response.status_code}"
+    )
+    {{ assertion_code | default('assert "error" in response.json() or "detail" in response.json()') }}

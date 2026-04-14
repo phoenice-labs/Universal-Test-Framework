@@ -1,0 +1,68 @@
+# E2E test type rules
+test_type: e2e
+description: "End-to-end tests that simulate real user journeys through the full application stack"
+
+scope:
+  target: "Complete user journeys through the UI and backend"
+  environment: "Staging or dedicated E2E environment with real or realistic data"
+  external_services: "Use test/sandbox accounts for real external services"
+  database: "Use realistic seeded data; clean up after tests"
+
+characteristics:
+  journey_focused: true        # Tests represent user journeys, not individual clicks
+  visual_regression: "optional but recommended"
+  accessibility: "recommended (axe-core)"
+  cross_browser: "recommended for critical journeys"
+  flakiness_tolerance: "zero — flaky tests must be fixed or deleted"
+
+coverage_targets:
+  user_journeys: 100           # All documented user journeys must be covered
+  happy_path: true             # Every journey must have a happy path test
+  critical_failure_paths: true # Auth failure, payment failure, etc.
+
+required_user_journeys_to_identify:
+  - "Registration / Onboarding"
+  - "Login / Logout / Session management"
+  - "Core feature happy path (domain-specific)"
+  - "Core feature failure paths"
+  - "Settings / Profile management"
+  - "Error recovery (retry after failure)"
+
+test_design:
+  page_object_model: true      # Use POM pattern — never hardcode selectors in tests
+  data_test_ids: true          # Use data-testid attributes for stable locators
+  no_sleep: true               # No arbitrary sleep() — use explicit waits
+  network_idle: "waitForLoadState('networkidle') or waitForResponse()"
+
+selector_strategy:
+  tier_1: "getByRole (accessibility-first)"
+  tier_2: "getByLabel / getByPlaceholder"
+  tier_3: "getByTestId (data-testid)"
+  tier_4: "getByText (stable text only)"
+  avoid: "CSS selectors, XPath, nth-child"
+
+tools:
+  web: ["playwright (recommended)", "cypress", "selenium webdriver"]
+  mobile: ["detox (React Native)", "appium"]
+  api_plus_ui: "Playwright supports both in same test"
+
+environment:
+  parallel: "Use multiple worker processes / shards"
+  retries: "Retry failed tests once in CI to detect true flakiness"
+  video: "Record video on failure"
+  screenshots: "Screenshot on failure"
+  trace: "Playwright trace on failure"
+
+anti_patterns:
+  - "Testing the same thing already covered by unit/integration tests"
+  - "Brittle selectors (CSS / XPath)"
+  - "Hardcoded sleep/wait times"
+  - "Tests that depend on order of execution"
+  - "Sharing state between tests"
+  - "Testing implementation details"
+
+contract_additions:
+  user_journey_name: "Name of the user journey being tested"
+  preconditions: "User state required (logged in? specific role?)"
+  test_data_setup: "What data must be seeded before this test"
+  cleanup: "What data/state must be cleaned up after"

@@ -1,0 +1,35 @@
+/**
+ * Test ID        : {{ test_id }}
+ * Why Generated  : {{ why_generated }}
+ * Requirement    : {{ requirement_mapping }}
+ * How it Exercises:
+ *   GIVEN {{ given }}
+ *   WHEN  {{ when }}
+ *   THEN  {{ then }}
+ * Coverage       : {{ coverage_contribution }}
+ * Expected Outcome: {{ expected_outcome }}
+ * Gaps           : {{ gaps_missing }}
+ * Meaningfulness : {{ meaningfulness_check }}
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@DisplayName("{{ test_display_name }}: {{ test_id }}")
+class {{ FuncName }}IntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Test
+    void test{{ FuncName }}Integration() throws Exception {
+        // ── GIVEN ────────────────────────────────────────────────────────
+        {{ given_code | default('// seed test data via repository or TestRestTemplate') }};
+
+        // ── WHEN + THEN ──────────────────────────────────────────────────
+        mockMvc.perform(
+                get("/api/v1/resource")  // TODO: replace path and HTTP method
+                    .contentType(MediaType.APPLICATION_JSON)
+            )
+            .andExpect(status().isOk())
+            {{ assertion_code | default('.andExpect(content().contentType(MediaType.APPLICATION_JSON))') }};
+    }
+}

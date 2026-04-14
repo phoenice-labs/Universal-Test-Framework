@@ -1,0 +1,34 @@
+/**
+ * Test ID        : {{ test_id }}
+ * Why Generated  : {{ why_generated }}
+ * Requirement    : {{ requirement_mapping }}
+ * How it Exercises:
+ *   GIVEN {{ given }}
+ *   WHEN  {{ when }}
+ *   THEN  {{ then }}
+ * Coverage       : {{ coverage_contribution }}
+ * Expected Outcome: {{ expected_outcome }}
+ * Gaps           : {{ gaps_missing }}
+ * Meaningfulness : {{ meaningfulness_check }}
+ */
+describe('{{ test_display_name }}', () => {
+  let service: any;
+
+  beforeEach(() => {
+    // ── GIVEN ────────────────────────────────────────────────────────────
+    {{ given_code | default('// initialise service with mocked dependencies') }};
+    service = new (vi.fn())();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('{{ test_id }}: {{ test_display_name }}', async () => {
+    // ── WHEN ──────────────────────────────────────────────────────────────
+    const result = await {{ call_expression | default('service.execute(input)') }};
+
+    // ── THEN ──────────────────────────────────────────────────────────────
+    {{ assertion_code | default('expect(result).toBeDefined();') }}
+  });
+});

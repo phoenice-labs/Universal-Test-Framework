@@ -1,7 +1,20 @@
 # Universal Test Framework — Docker Compose
 # Starts the MCP server for team/remote use via HTTP/SSE transport.
+#
+# Registry persistence:
+#   The named volume 'utf_registry' persists the SQLite registry (/app/.utf/utf.db)
+#   across container restarts.  Use a bind-mount instead for per-project isolation:
+#     volumes:
+#       - ./my-project/.utf:/app/.utf
+#   See docs/setup-docker.md for full options.
 
 version: "3.9"
+
+volumes:
+  # Named volume for persistent SQLite registry.
+  # Replace with a bind-mount pointing to your project's .utf/ folder for
+  # per-project isolation (see README — Docker setup method).
+  utf_registry:
 
 services:
   utf-server:
@@ -21,7 +34,13 @@ services:
       UTF_PORT: "8765"
       UTF_LOG_LEVEL: "info"
 
-    # Read-only filesystem for security
+    volumes:
+      # Persist the SQLite registry across container restarts.
+      # For per-project isolation, replace with a bind-mount:
+      #   - /path/to/your/project/.utf:/app/.utf
+      - utf_registry:/app/.utf
+
+    # Read-only filesystem for security; .utf/ is writable via the volume above.
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777

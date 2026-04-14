@@ -1,0 +1,52 @@
+# Unit test type rules
+test_type: unit
+description: "Tests that verify individual functions, methods, or classes in isolation"
+
+scope:
+  target: "Single function, method, or class"
+  isolation: "All dependencies mocked or stubbed"
+  external_calls: "Not allowed — must be mocked"
+  database: "Not allowed — must be mocked"
+  filesystem: "Not allowed — must be mocked or use tmp_path"
+
+characteristics:
+  fast: true                    # Must complete < 100ms each
+  deterministic: true           # Same result every run
+  independent: true             # No shared state between tests
+  focused: true                 # One logical concept per test
+
+coverage_targets:
+  line: 90
+  branch: 85
+  mutation: 70
+
+required_scenarios:
+  - happy_path                  # Normal successful execution
+  - invalid_input               # Bad/null/empty input
+  - boundary_values             # Min, max, edge values
+  - error_conditions            # Exception/error paths
+  - null_none_undefined         # Null safety
+  - type_mismatch               # Wrong type input (where applicable)
+
+test_data:
+  realistic: true               # Use real-looking data, not "foo"/"bar"
+  no_production_data: true      # Never use real PII
+  factories_recommended: true
+
+naming_conventions:
+  python: "test_{method_name}_{scenario}_{expected}"
+  typescript: "should {behavior} when {condition}"
+  java: "test{MethodName}_when{Condition}_should{ExpectedBehavior}"
+  go: "Test{FunctionName}/{scenario}"
+
+anti_patterns:
+  - "Testing framework itself (e.g., testing that mock.assert_called works)"
+  - "Testing implementation details rather than behavior"
+  - "Tests that always pass regardless of implementation"
+  - "Multiple unrelated assertions in one test"
+  - "Magic numbers without explanation"
+  - "No arrange/act/assert structure"
+
+contract_additions:
+  coverage_note: "Specify: which branch/path this covers, % of method coverage"
+  mock_documentation: "List all mocks and what they replace"

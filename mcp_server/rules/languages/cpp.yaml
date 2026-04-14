@@ -1,0 +1,51 @@
+# C++ language rules
+language: cpp
+version_support: ["C++14", "C++17", "C++20", "C++23"]
+default_framework: googletest
+
+test_file_conventions:
+  naming_pattern: "{module}_test.cpp"
+  directory: "tests/ or test/"
+  discovery: "CMake CTest / Bazel test"
+
+import_style: '#include "gtest/gtest.h"'
+
+assertion_style:
+  preferred: "EXPECT_EQ(expected, actual)"
+  fatal: "ASSERT_EQ(expected, actual)"
+  matcher_libraries: ["Google Test", "Catch2", "Boost.Test", "doctest"]
+
+mock_libraries: ["Google Mock (gmock)", "FakeIt", "trompeloeil"]
+
+fixture_style: "class TestFixture : public ::testing::Test { void SetUp(); void TearDown(); }"
+
+async_support:
+  pattern: "std::future / std::async + EXPECT_EQ on result"
+  timeout: "custom timeout wrappers"
+
+parametrize: "INSTANTIATE_TEST_SUITE_P + ::testing::Values(...)"
+
+test_id_comment_style: |
+  /**
+   * Test ID: TC-REQ-001
+   * Why Generated: ...
+   * Requirement Mapping: US-001, AC-1.1
+   * How it Exercises: GIVEN ... WHEN ... THEN ...
+   * Coverage: branch coverage, validation logic
+   * Expected Outcome: EXPECT_EQ(0, result.error_code)
+   * Gaps: does not test memory allocation failures
+   * Meaningfulness: meaningful — directly validates AC-1.1
+   */
+
+coverage_tool: "gcov / llvm-cov"
+coverage_report_flag: "--coverage (gcc) or -fprofile-instr-generate (clang)"
+
+security_tools: ["clang-tidy", "cppcheck", "AddressSanitizer", "UBSan", "semgrep"]
+type_checking: "compiler warnings (-Wall -Wextra -Werror)"
+
+build_tools: ["cmake", "bazel", "make"]
+
+template_variables:
+  test_suite_macro: "TEST_F(FixtureName, TestName)"
+  simple_test_macro: "TEST(SuiteName, TestName)"
+  tags: ["// @unit", "// @integration", "// @performance", "// @security"]

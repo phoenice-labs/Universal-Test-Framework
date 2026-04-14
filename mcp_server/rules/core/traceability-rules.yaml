@@ -1,0 +1,120 @@
+# =============================================================================
+# Universal Test Framework — Traceability Rules
+# Version: 1.0.0
+# Defines how requirements are linked to tests and how the traceability
+# matrix is built, validated, and reported.
+# =============================================================================
+
+traceability:
+  version: "1.0.0"
+
+  # Requirement source types supported
+  requirement_sources:
+    - type: user_story
+      id_prefix: "US-"
+      example: "US-123"
+      description: "Agile user story"
+
+    - type: acceptance_criteria
+      id_prefix: "AC-"
+      example: "AC-2.1"
+      description: "Acceptance criteria line item"
+
+    - type: requirement
+      id_prefix: "REQ-"
+      example: "REQ-042"
+      description: "Formal requirement (SRS, BRD)"
+
+    - type: jira_ticket
+      id_prefix: "JIRA-"
+      example: "JIRA-1234"
+      description: "Jira issue ID"
+
+    - type: bug
+      id_prefix: "BUG-"
+      example: "BUG-567"
+      description: "Bug / defect report"
+
+    - type: non_functional
+      id_prefix: "NFR-"
+      example: "NFR-001"
+      description: "Non-functional requirement (performance, security, scalability)"
+
+    - type: security_control
+      id_prefix: "SEC-"
+      example: "SEC-01"
+      description: "Security control or compliance requirement"
+
+  # Matrix structure
+  matrix:
+    format: "requirement_to_test"   # requirement_id → [test_ids]
+    fields_per_entry:
+      - requirement_id
+      - requirement_description
+      - test_ids
+      - test_count
+      - coverage_status          # covered | partially_covered | not_covered
+      - test_types_covered       # [unit, integration, ...]
+      - risk_level               # high | medium | low
+      - last_verified            # ISO date
+
+  # Coverage status rules
+  coverage_status_rules:
+    covered:
+      description: "Requirement has >= 1 passing test of appropriate type"
+      minimum_tests: 1
+      require_passing: true
+
+    partially_covered:
+      description: "Requirement has tests but gaps identified in section 7"
+      condition: "tests exist AND gaps_missing section is non-empty"
+
+    not_covered:
+      description: "No tests map to this requirement"
+      blocks_release: true    # Not-covered requirements block release by default
+
+  # Validation rules
+  validation:
+    orphan_tests_allowed: false         # Every test must map to a requirement
+    orphan_requirements_block: true     # Requirements with no tests block release
+    duplicate_test_ids_allowed: false   # Test IDs must be globally unique
+    require_bidirectional_links: true   # Req→Test AND Test→Req links must both exist
+
+  # Reporting
+  reporting:
+    formats: ["markdown", "csv", "json", "html"]
+    include_summary:
+      - total_requirements
+      - covered_count
+      - partially_covered_count
+      - not_covered_count
+      - coverage_percentage
+      - high_risk_gaps
+    generate_gap_report: true
+    generate_risk_heatmap: true
+
+  # Risk assessment
+  risk_levels:
+    high:
+      description: "Security, authentication, payment, PII, data integrity"
+      keywords: ["auth", "login", "payment", "pii", "sensitive", "encrypt", "password", "token", "secret"]
+      require_multiple_test_types: ["unit", "integration", "security"]
+      require_negative_tests: true
+      require_boundary_tests: true
+
+    medium:
+      description: "Core business logic, data transformation, API responses"
+      keywords: ["business", "calculate", "transform", "process", "validate", "api"]
+      require_multiple_test_types: ["unit", "integration"]
+
+    low:
+      description: "UI rendering, logging, configuration, utilities"
+      keywords: ["log", "config", "display", "render", "format", "utility"]
+      require_multiple_test_types: ["unit"]
+
+  # Auto-ID generation rules
+  test_id_generation:
+    format: "TC-{REQ_TYPE}-{SEQUENCE}"
+    sequence_padding: 3        # TC-REQ-001, TC-REQ-042
+    per_requirement_sequence: false   # Use global sequence, not per-requirement
+    collision_strategy: "increment"  # Increment sequence on collision

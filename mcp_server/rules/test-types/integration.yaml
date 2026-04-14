@@ -1,0 +1,45 @@
+# Integration test type rules
+test_type: integration
+description: "Tests that verify multiple components working together — services, repositories, message queues"
+
+scope:
+  target: "Two or more components interacting"
+  isolation: "Some real dependencies; external I/O may be replaced with test doubles"
+  database: "Allowed — use test database, transactions rolled back after each test"
+  message_queue: "Allowed — use embedded broker (e.g., embedded Kafka, RabbitMQ testcontainers)"
+  external_http: "Mock with WireMock / httpretty / msw unless explicitly testing real integration"
+  filesystem: "Allowed — use temp directories"
+
+characteristics:
+  speed: "medium (100ms–5s each)"
+  state_management: "Each test must clean up its state (rollback transaction or truncate)"
+  idempotent: true              # Running twice produces same result
+
+coverage_targets:
+  line: 75
+  branch: 65
+  component_interaction: 100   # All documented component interfaces must be exercised
+
+required_scenarios:
+  - happy_path                  # Normal flow across components
+  - failure_propagation         # Downstream failure handled correctly
+  - data_persistence            # Data written and read correctly
+  - transaction_rollback        # Partial failures roll back correctly
+  - timeout_handling            # Slow dependencies handled gracefully
+  - retry_logic                 # Retry on transient failures
+
+test_containers:
+  recommended: true
+  tools: ["testcontainers-python", "testcontainers-java", "dockertest (Go)"]
+  purpose: "Start real DB/queue/cache containers for integration tests"
+
+database_strategy:
+  preferred: "testcontainers or in-memory DB (H2, SQLite)"
+  cleanup: "transaction rollback or table truncation after each test"
+  migrations: "Run full migration suite before test suite"
+  seed_data: "Use factories/fixtures, document what data is seeded"
+
+contract_additions:
+  component_map: "Document which components are tested and which are mocked"
+  cleanup_strategy: "Document how test state is cleaned up"
+  data_fixtures: "List all seed data required"

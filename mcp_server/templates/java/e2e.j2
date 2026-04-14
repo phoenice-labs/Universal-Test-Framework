@@ -1,0 +1,40 @@
+/**
+ * Test ID        : {{ test_id }}
+ * Why Generated  : {{ why_generated }}
+ * Requirement    : {{ requirement_mapping }}
+ * How it Exercises:
+ *   GIVEN {{ given }}
+ *   WHEN  {{ when }}
+ *   THEN  {{ then }}
+ * Coverage       : {{ coverage_contribution }}
+ * Expected Outcome: {{ expected_outcome }}
+ * Gaps           : {{ gaps_missing }}
+ * Meaningfulness : {{ meaningfulness_check }}
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@DisplayName("{{ test_display_name }}: {{ test_id }}")
+class {{ FuncName }}E2ETest {
+
+    @Autowired
+    private TestRestTemplate restTemplate;
+
+    @LocalServerPort
+    private int port;
+
+    private String baseUrl() {
+        return "http://localhost:" + port;
+    }
+
+    @Test
+    @DisplayName("{{ test_display_name }}")
+    void test{{ FuncName }}E2EFlow() {
+        // ── GIVEN ────────────────────────────────────────────────────────
+        {{ given_code | default('// set up end-to-end test preconditions (seed data, auth token)') }};
+
+        // ── WHEN ──────────────────────────────────────────────────────────
+        var result = {{ call_expression | default('restTemplate.getForEntity(baseUrl() + "/api/v1/resource", String.class)') }};
+
+        // ── THEN ──────────────────────────────────────────────────────────
+        {{ assertion_code | default('assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);') }}
+    }
+}

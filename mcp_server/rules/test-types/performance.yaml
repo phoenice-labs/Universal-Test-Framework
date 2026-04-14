@@ -1,0 +1,91 @@
+# Performance test type rules
+test_type: performance
+description: "Tests that validate system behavior under load — latency, throughput, resource utilization"
+
+scope:
+  target: "API endpoints, background jobs, database queries, UI interactions"
+  environment: "Dedicated performance/staging environment (never production)"
+  data: "Production-like data volume"
+  isolation: "No other load during test"
+
+test_scenarios:
+  smoke:
+    description: "Minimal load — validates test setup works"
+    vus: 1
+    duration: "1m"
+    purpose: "Baseline functionality check"
+
+  average_load:
+    description: "Expected normal traffic"
+    ramp_up: "5m"
+    steady_state: "10m"
+    ramp_down: "5m"
+    purpose: "Verify behavior under normal conditions"
+
+  stress:
+    description: "Above normal traffic — find breaking point"
+    ramp_up: "gradual increase until failure"
+    purpose: "Find system limits"
+
+  spike:
+    description: "Sudden 10x traffic increase"
+    duration: "short burst"
+    purpose: "Test auto-scaling and recovery"
+
+  soak:
+    description: "Sustained average load for extended period"
+    duration: "4h or more"
+    purpose: "Find memory leaks, connection pool exhaustion"
+
+  breakpoint:
+    description: "Gradually increase until SLA violated"
+    purpose: "Document exact capacity limits"
+
+default_sla_thresholds:
+  api_response_time:
+    p50_ms: 100
+    p95_ms: 500
+    p99_ms: 1000
+  web_page_load:
+    p95_ms: 3000
+  background_job:
+    p95_ms: 30000
+  error_rate_pct: 1.0
+  cpu_usage_pct: 80
+  memory_usage_pct: 85
+
+metrics_required:
+  - "p50 response time (ms)"
+  - "p95 response time (ms)"
+  - "p99 response time (ms)"
+  - "throughput (req/s)"
+  - "error rate (%)"
+  - "concurrent users"
+  - "CPU utilization (%)"
+  - "memory usage (MB)"
+
+tools:
+  recommended: ["k6", "locust", "gatling", "artillery"]
+  legacy: ["jmeter", "ab", "wrk"]
+  cloud: ["k6 cloud", "blazemeter", "loader.io"]
+
+reporting:
+  baseline_required: true      # Must establish a baseline before comparing
+  trend_analysis: true         # Compare against previous runs
+  output_formats: ["html", "json", "csv", "grafana dashboard"]
+  alerting_on_regression: true # Alert if metrics regress from baseline
+
+anti_patterns:
+  - "Running performance tests in production"
+  - "Not establishing a baseline first"
+  - "Testing with non-production-like data"
+  - "Single VU tests (not representative)"
+  - "Ignoring error rate — only looking at latency"
+  - "Not testing ramp-down behavior"
+
+contract_additions:
+  sla_source: "Reference to NFR document or ticket defining SLAs"
+  baseline_run_date: "Date of baseline measurement"
+  environment_spec: "CPU, memory, instance count of target environment"
+  concurrent_users_target: "Number of concurrent users to simulate"
+  test_scenario_type: "smoke | average_load | stress | spike | soak | breakpoint"

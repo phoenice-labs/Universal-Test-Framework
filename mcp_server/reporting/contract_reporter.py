@@ -49,10 +49,17 @@ class TestContractRecord:
     # Section content — the actual text for each of the 8 sections
     section_content: dict[str, str] = None   # key → full section text
     rendered_code: str = ""              # the generated test code
+    # Imported-test metadata (populated when test was imported from JUnit XML)
+    is_imported: bool = False
+    display_name: str = ""               # human-readable: classname::method
+    failure_message_import: str = ""     # failure detail from JUnit XML
+    imported_from: str = ""             # source XML filename
 
     def __post_init__(self):
         if self.section_content is None:
             self.section_content = {}
+        if not self.display_name:
+            self.display_name = self.test_id
 
 
 @dataclass
@@ -73,6 +80,7 @@ class ContractReport:
     framework: str = ""
     test_type: str = ""
     trend: Optional[dict[str, Any]] = None
+    imported_count: int = 0              # tests imported from external runner
 
 
 class ContractReporter:
@@ -156,19 +164,20 @@ class ContractReporter:
             rec = self._test_to_record(t, exec_info, is_blocked=True)
             records.append(rec)
 
-        # Suite-level aggregation
+        # Suite-level aggregation — exclude imported tests from contract score
         passing_records = [r for r in records if not r.is_blocked]
+        contract_records = [r for r in passing_records if not r.is_imported]
         suite_score = (
-            sum(r.contract_score for r in passing_records) / len(passing_records)
-            if passing_records else 0.0
+            sum(r.contract_score for r in contract_records) / len(contract_records)
+            if contract_records else 0.0
         )
 
-        # Per-section averages over passing tests
+        # Per-section averages over UTF-generated (non-imported) tests only
         section_averages: dict[str, float] = {}
         section_pass_rates: dict[str, float] = {}
         for key in _SECTION_KEYS:
             weight = _SECTION_WEIGHTS[key]
-            scores = [r.section_scores.get(key, 0.0) for r in passing_records]
+            scores = [r.section_scores.get(key, 0.0) for r in contract_records]
             avg = sum(scores) / len(scores) if scores else 0.0
             section_averages[key] = avg
             # "full score" = within 5% of the section's weight
@@ -206,11 +215,34 @@ class ContractReporter:
             language=getattr(output, "detected_language", ""),
             framework=getattr(output, "detected_framework", ""),
             test_type=cov.get("test_type", ""),
+            imported_count=len([r for r in passing_records if r.is_imported]),
         )
 
     def _test_to_record(self, t: Any, exec_info: dict, is_blocked: bool) -> TestContractRecord:
         """Convert a GeneratedTest to a TestContractRecord."""
-        # Build section_scores from per-section validation data if available
+        is_imported = getattr(t, "is_imported", False)
+
+        # ── Imported test: skip contract re-validation, show exec metadata ──
+        if is_imported:
+            return TestContractRecord(
+                test_id=t.test_id,
+                section_scores={k: 0.0 for k in _SECTION_KEYS},
+                contract_score=0.0,
+                violations=[],
+                exec_status=exec_info.get("exec_status"),
+                exec_duration_s=exec_info.get("exec_duration_s"),
+                exec_output=exec_info.get("exec_output", ""),
+                gaps_text="",
+                is_blocked=is_blocked,
+                section_content={},
+                rendered_code="",
+                is_imported=True,
+                display_name=getattr(t, "display_name", t.test_id),
+                failure_message_import=getattr(t, "failure_message", ""),
+                imported_from=getattr(t, "imported_from", ""),
+            )
+
+        # ── UTF-generated test: full 8-section contract validation ───────────
         section_scores: dict[str, float] = {}
 
         # Try to get per-section scores from the validation result embedded on the test
@@ -286,139 +318,255 @@ def _kpi_color(score: float) -> str:
 
 
 def _render_html(report: ContractReport) -> str:
-    suite_pct = f"{report.suite_contract_score:.0%}"
-    kpi_col = _kpi_color(report.suite_contract_score)
-    exec_pct = (
-        f"{report.exec_pass_rate:.0%}" if report.exec_pass_rate is not None else "—"
+    ts = report.generated_at[:19].replace("T", " ") + " UTC"
+
+    imported_recs  = [r for r in report.records if r.is_imported]
+    generated_recs = [r for r in report.records if not r.is_imported]
+
+    # ── Execution KPIs for imported tests ──────────────────────────────────
+    exec_passed  = sum(1 for r in imported_recs if r.exec_status == "passed")
+    exec_failed  = sum(1 for r in imported_recs if r.exec_status == "failed")
+    exec_skipped = sum(1 for r in imported_recs if r.exec_status == "skipped")
+    exec_total   = len(imported_recs)
+    exec_pass_pct_str = (
+        f"{exec_passed/exec_total:.0%}" if exec_total > 0 else "—"
     )
+
+    # Unique source filename (for subtitle)
+    imported_src = next(
+        (r.imported_from for r in imported_recs if r.imported_from), ""
+    )
+
+    # ── Contract KPIs for generated tests ─────────────────────────────────
+    suite_pct  = f"{report.suite_contract_score:.0%}"
+    kpi_col    = _kpi_color(report.suite_contract_score)
     weakest_name = next(
         (m["name"] for m in _SECTION_META if m["key"] == report.weakest_section), "—"
     )
-    ts = report.generated_at[:19].replace("T", " ") + " UTC"
 
-    # Section weight legend
-    legend_rows = "".join(
-        f'<tr><td>{m["id"]}</td><td>{m["name"]}</td>'
-        f'<td style="text-align:right">{m["weight"]:.0%}</td></tr>'
-        for m in _SECTION_META
-    )
+    # ════════════════════════════════════════════════════════════════════════
+    # IMPORTED EXECUTION SECTION
+    # ════════════════════════════════════════════════════════════════════════
+    exec_section_html = ""
+    if imported_recs:
+        # --- Execution KPI strip ---
+        exec_kpi_html = f"""
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi-value" style="color:#22c55e">{exec_passed}</div>
+    <div class="kpi-label">✅ Passed</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value" style="color:#f87171">{exec_failed}</div>
+    <div class="kpi-label">❌ Failed</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value" style="color:#94a3b8">{exec_skipped}</div>
+    <div class="kpi-label">⏭ Skipped</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value" style="color:#22c55e">{exec_pass_pct_str}</div>
+    <div class="kpi-label">Pass Rate</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value">{exec_total}</div>
+    <div class="kpi-label">Total Tests</div>
+  </div>
+</div>"""
 
-    # Heatmap header
-    heatmap_headers = "".join(
-        f'<th title="{m["name"]}">{m["id"]}</th>' for m in _SECTION_META
-    )
+        # --- Group by classname for execution table ---
+        from collections import defaultdict as _dd
+        by_class: dict = _dd(list)
+        for r in imported_recs:
+            cls = r.display_name.split("::")[0] if "::" in r.display_name else "Tests"
+            by_class[cls].append(r)
 
-    # Heatmap rows
-    heatmap_rows = ""
-    for rec in report.records:
-        status_badge = ""
-        if rec.exec_status:
-            colour = {
-                "passed": "#22c55e", "failed": "#f87171",
-                "error": "#f87171", "skipped": "#94a3b8",
-            }.get(rec.exec_status, "#94a3b8")
-            status_badge = (
-                f'<span style="background:{colour};color:#fff;border-radius:4px;'
-                f'padding:1px 6px;font-size:0.7rem;margin-left:6px">'
-                f'{rec.exec_status}</span>'
-            )
-        if rec.is_blocked:
-            status_badge += (
-                '<span style="background:#f87171;color:#fff;border-radius:4px;'
-                'padding:1px 6px;font-size:0.7rem;margin-left:4px">BLOCKED</span>'
-            )
-        cells = "".join(
-            f'<td style="background:{_score_color(rec.section_scores.get(m["key"], 0), m["weight"])};'
-            f'text-align:center;font-size:0.75rem" '
-            f'title="{m["name"]}: {rec.section_scores.get(m["key"], 0):.3f}">'
-            f'{rec.section_scores.get(m["key"], 0):.2f}</td>'
+        exec_table_rows = ""
+        for cls_name, cls_recs in sorted(by_class.items()):
+            cls_passed  = sum(1 for r in cls_recs if r.exec_status == "passed")
+            cls_failed  = sum(1 for r in cls_recs if r.exec_status == "failed")
+            cls_skipped = sum(1 for r in cls_recs if r.exec_status == "skipped")
+            cls_col = "#22c55e" if cls_failed == 0 else "#f87171"
+            exec_table_rows += f"""
+<tr style="background:#f8fafc">
+  <td colspan="3" style="font-weight:700;font-size:0.88rem;padding:8px 10px;
+      border-left:3px solid {cls_col};color:#1e293b">
+    📂 {escape(cls_name)}
+    <span style="font-weight:normal;color:#64748b;font-size:0.8rem;margin-left:8px">
+      {cls_passed} passed &nbsp; {cls_failed} failed &nbsp; {cls_skipped} skipped
+    </span>
+  </td>
+</tr>"""
+            for r in sorted(cls_recs, key=lambda x: x.display_name):
+                method = r.display_name.split("::", 1)[-1] if "::" in r.display_name else r.display_name
+                dur_str = f"{r.exec_duration_s:.3f}s" if r.exec_duration_s else "—"
+                status = r.exec_status or "unknown"
+                s_col = {"passed": "#22c55e", "failed": "#f87171",
+                         "skipped": "#94a3b8"}.get(status, "#64748b")
+                s_icon = {"passed": "✅", "failed": "❌", "skipped": "⏭"}.get(status, "•")
+                fail_row = ""
+                if r.failure_message_import:
+                    fail_row = (
+                        f'<tr><td></td>'
+                        f'<td colspan="2" style="background:#fff5f5;font-size:0.78rem;'
+                        f'color:#b91c1c;padding:4px 10px 8px 10px;font-family:monospace;white-space:pre-wrap">'
+                        f'{escape(r.failure_message_import[:500])}</td></tr>'
+                    )
+                exec_table_rows += f"""
+<tr>
+  <td style="font-size:0.82rem;padding:4px 4px 4px 24px;color:#334155">{escape(method)}</td>
+  <td style="text-align:center;font-weight:700;color:{s_col};font-size:0.82rem">{s_icon} {escape(status)}</td>
+  <td style="text-align:right;font-size:0.78rem;color:#64748b">{dur_str}</td>
+</tr>
+{fail_row}"""
+
+        exec_section_html = f"""
+<section>
+  <h2>🚀 Execution Results
+    <span style="font-weight:normal;font-size:0.82rem;color:#64748b;margin-left:8px">
+      Imported from: {escape(imported_src)}
+    </span>
+  </h2>
+  {exec_kpi_html}
+  <div style="overflow-x:auto;margin-top:16px">
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align:left">Test Method</th>
+        <th>Status</th>
+        <th style="text-align:right">Duration</th>
+      </tr>
+    </thead>
+    <tbody>
+      {exec_table_rows}
+    </tbody>
+  </table>
+  </div>
+  <div style="margin-top:16px;padding:12px 16px;background:#fffbeb;border:1px solid #fbbf24;
+      border-radius:8px;font-size:0.83rem;color:#78350f">
+    <strong>💡 Want full 8-section contract analysis?</strong>
+    These tests were imported from an external pytest run. To get requirement traceability,
+    coverage contribution, and automated contract scoring, generate the test suite via
+    <code>utf generate tests e2e</code> — UTF will produce contract-annotated test scaffolding
+    that can be re-run to populate all sections.
+  </div>
+</section>"""
+
+    # ════════════════════════════════════════════════════════════════════════
+    # CONTRACT SECTION (for UTF-generated tests)
+    # ════════════════════════════════════════════════════════════════════════
+    contract_section_html = ""
+    if generated_recs:
+        # Section weight legend
+        legend_rows = "".join(
+            f'<tr><td>{m["id"]}</td><td>{m["name"]}</td>'
+            f'<td style="text-align:right">{m["weight"]:.0%}</td></tr>'
             for m in _SECTION_META
         )
-        overall_col = _kpi_color(rec.contract_score)
-        heatmap_rows += (
-            f'<tr>'
-            f'<td style="white-space:nowrap;font-family:monospace;font-size:0.8rem">'
-            f'{escape(rec.test_id)}{status_badge}</td>'
-            f'{cells}'
-            f'<td style="text-align:center;font-weight:bold;'
-            f'color:{overall_col}">{rec.contract_score:.3f}</td>'
-            f'</tr>'
+        heatmap_headers = "".join(
+            f'<th title="{m["name"]}">{m["id"]}</th>' for m in _SECTION_META
         )
 
-    # Section average footer row
-    avg_cells = "".join(
-        f'<td style="background:{_score_color(report.section_averages.get(m["key"],0), m["weight"])};'
-        f'text-align:center;font-size:0.75rem;font-weight:bold">'
-        f'{report.section_averages.get(m["key"],0):.2f}</td>'
-        for m in _SECTION_META
-    )
+        # Heatmap rows (generated tests only)
+        heatmap_rows = ""
+        for rec in generated_recs:
+            status_badge = ""
+            if rec.exec_status:
+                colour = {"passed": "#22c55e", "failed": "#f87171",
+                          "error": "#f87171", "skipped": "#94a3b8"}.get(rec.exec_status, "#94a3b8")
+                status_badge = (
+                    f'<span style="background:{colour};color:#fff;border-radius:4px;'
+                    f'padding:1px 6px;font-size:0.7rem;margin-left:6px">{rec.exec_status}</span>'
+                )
+            if rec.is_blocked:
+                status_badge += (
+                    '<span style="background:#f87171;color:#fff;border-radius:4px;'
+                    'padding:1px 6px;font-size:0.7rem;margin-left:4px">BLOCKED</span>'
+                )
+            cells = "".join(
+                f'<td style="background:{_score_color(rec.section_scores.get(m["key"], 0), m["weight"])};'
+                f'text-align:center;font-size:0.75rem" '
+                f'title="{m["name"]}: {rec.section_scores.get(m["key"], 0):.3f}">'
+                f'{rec.section_scores.get(m["key"], 0):.2f}</td>'
+                for m in _SECTION_META
+            )
+            overall_col = _kpi_color(rec.contract_score)
+            heatmap_rows += (
+                f'<tr>'
+                f'<td style="white-space:nowrap;font-family:monospace;font-size:0.8rem">'
+                f'{escape(rec.test_id)}{status_badge}</td>'
+                f'{cells}'
+                f'<td style="text-align:center;font-weight:bold;color:{overall_col}">'
+                f'{rec.contract_score:.3f}</td>'
+                f'</tr>'
+            )
 
-    # Per-test detail cards
-    detail_cards = ""
-    for rec in report.records:
-        border_color = "#f87171" if rec.is_blocked or (rec.exec_status == "failed") else (
-            "#fbbf24" if rec.contract_score < 0.85 else "#e2e8f0"
+        avg_cells = "".join(
+            f'<td style="background:{_score_color(report.section_averages.get(m["key"],0), m["weight"])};'
+            f'text-align:center;font-size:0.75rem;font-weight:bold">'
+            f'{report.section_averages.get(m["key"],0):.2f}</td>'
+            for m in _SECTION_META
         )
-        score_color = _kpi_color(rec.contract_score)
 
-        # ── Violations + recommendations ───────────────────────────────
-        viol_html = ""
-        if rec.violations:
-            hard = [v for v in rec.violations if not v.startswith("[Soft]")]
-            soft = [v for v in rec.violations if v.startswith("[Soft]")]
-            if hard:
-                viol_html += "<p><strong>⚠ Violations:</strong></p><ul>" + "".join(
-                    f"<li>{escape(v)}</li>" for v in hard
-                ) + "</ul>"
-            if soft:
-                viol_html += "<p><strong>💡 Recommendations:</strong></p><ul>" + "".join(
-                    f"<li>{escape(v)}</li>" for v in soft
-                ) + "</ul>"
+        # Per-test detail cards (generated tests only)
+        detail_cards = ""
+        for rec in generated_recs:
+            border_color = "#f87171" if rec.is_blocked or rec.exec_status == "failed" else (
+                "#fbbf24" if rec.contract_score < 0.85 else "#e2e8f0"
+            )
+            score_color = _kpi_color(rec.contract_score)
 
-        # ── Execution status banner ─────────────────────────────────────
-        exec_banner = ""
-        if rec.exec_status:
-            dur = f" ({rec.exec_duration_s:.3f}s)" if rec.exec_duration_s else ""
-            exec_col = {"passed": "#22c55e", "failed": "#f87171",
-                        "error": "#f97316", "skipped": "#94a3b8"}.get(
-                            rec.exec_status, "#64748b")
-            exec_banner = (
-                f'<div style="background:{exec_col}22;border-left:4px solid {exec_col};'
-                f'padding:8px 12px;border-radius:4px;margin:8px 0;font-weight:600">'
-                f'🚦 Execution: {escape(rec.exec_status)}{escape(dur)}</div>'
-            )
-        if rec.exec_output:
-            exec_banner += (
-                f'<details style="margin:4px 0">'
-                f'<summary style="cursor:pointer;color:#64748b;font-size:0.8rem">▶ Execution output</summary>'
-                f'<pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:6px;'
-                f'font-size:0.78rem;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin:4px 0">'
-                f'{escape(rec.exec_output[:4000])}</pre></details>'
-            )
+            viol_html = ""
+            if rec.violations:
+                hard = [v for v in rec.violations if not v.startswith("[Soft]")]
+                soft = [v for v in rec.violations if v.startswith("[Soft]")]
+                if hard:
+                    viol_html += "<p><strong>⚠ Violations:</strong></p><ul>" + "".join(
+                        f"<li>{escape(v)}</li>" for v in hard) + "</ul>"
+                if soft:
+                    viol_html += "<p><strong>💡 Recommendations:</strong></p><ul>" + "".join(
+                        f"<li>{escape(v)}</li>" for v in soft) + "</ul>"
 
-        # ── 8-section content rows ──────────────────────────────────────
-        sc = rec.section_content or {}
-        section_rows_html = ""
-        for m in _SECTION_META:
-            key = m["key"]
-            weight = m["weight"]
-            score = rec.section_scores.get(key, 0.0)
-            pct = score / weight * 100 if weight else 0.0
-            status_icon = "✅" if pct >= 95 else ("⚠️" if pct >= 70 else "❌")
-            status_col = "#22c55e" if pct >= 95 else ("#fbbf24" if pct >= 70 else "#f87171")
-            content_text = sc.get(key, "")
-            # For test_id section, the "content" is the ID itself
-            if key == "test_id":
-                content_text = rec.test_id
-            content_html = (
-                f'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;'
-                f'padding:8px 10px;font-size:0.82rem;color:#334155;white-space:pre-wrap;'
-                f'word-break:break-word;margin-top:4px">{escape(content_text)}</div>'
-            ) if content_text else (
-                f'<div style="color:#94a3b8;font-size:0.8rem;font-style:italic;padding:4px 0">'
-                f'(no content captured)</div>'
-            )
-            section_rows_html += f"""
+            exec_banner = ""
+            if rec.exec_status:
+                dur = f" ({rec.exec_duration_s:.3f}s)" if rec.exec_duration_s else ""
+                exec_col = {"passed": "#22c55e", "failed": "#f87171",
+                            "error": "#f97316", "skipped": "#94a3b8"}.get(rec.exec_status, "#64748b")
+                exec_banner = (
+                    f'<div style="background:{exec_col}22;border-left:4px solid {exec_col};'
+                    f'padding:8px 12px;border-radius:4px;margin:8px 0;font-weight:600">'
+                    f'🚦 Execution: {escape(rec.exec_status)}{escape(dur)}</div>'
+                )
+            if rec.exec_output:
+                exec_banner += (
+                    f'<details style="margin:4px 0"><summary style="cursor:pointer;color:#64748b;'
+                    f'font-size:0.8rem">▶ Execution output</summary>'
+                    f'<pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:6px;'
+                    f'font-size:0.78rem;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin:4px 0">'
+                    f'{escape(rec.exec_output[:4000])}</pre></details>'
+                )
+
+            sc = rec.section_content or {}
+            section_rows_html = ""
+            for m in _SECTION_META:
+                key = m["key"]
+                weight = m["weight"]
+                score = rec.section_scores.get(key, 0.0)
+                pct = score / weight * 100 if weight else 0.0
+                status_icon = "✅" if pct >= 95 else ("⚠️" if pct >= 70 else "❌")
+                status_col = "#22c55e" if pct >= 95 else ("#fbbf24" if pct >= 70 else "#f87171")
+                content_text = sc.get(key, "")
+                if key == "test_id":
+                    content_text = rec.test_id
+                content_html = (
+                    f'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;'
+                    f'padding:8px 10px;font-size:0.82rem;color:#334155;white-space:pre-wrap;'
+                    f'word-break:break-word;margin-top:4px">{escape(content_text)}</div>'
+                ) if content_text else (
+                    f'<div style="color:#94a3b8;font-size:0.8rem;font-style:italic;padding:4px 0">'
+                    f'(no content captured)</div>'
+                )
+                section_rows_html += f"""
 <div style="border:1px solid {status_col}44;border-radius:8px;padding:10px 14px;margin:6px 0;background:#fff">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
     <span style="font-weight:700;font-size:0.85rem;color:#1e293b">{m["id"]}. {m["name"]}</span>
@@ -429,96 +577,53 @@ def _render_html(report: ContractReport) -> str:
   {content_html}
 </div>"""
 
-        # ── Rendered test code ──────────────────────────────────────────
-        code_html = ""
-        if rec.rendered_code:
-            code_html = f"""
+            code_html = ""
+            if rec.rendered_code:
+                code_html = f"""
 <details style="margin:8px 0">
   <summary style="cursor:pointer;font-weight:600;color:#1e293b;padding:6px 0">
-    📝 Generated Test Code
-    <span style="font-weight:normal;color:#64748b;font-size:0.8rem;margin-left:8px">
-      (click to expand)
-    </span>
+    📝 Generated Test Code <span style="font-weight:normal;color:#64748b;font-size:0.8rem">(click to expand)</span>
   </summary>
-  <pre style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px;
-font-size:0.78rem;overflow-x:auto;white-space:pre;line-height:1.5;margin:6px 0">{escape(rec.rendered_code)}</pre>
+  <pre style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px;font-size:0.78rem;
+overflow-x:auto;white-space:pre;line-height:1.5;margin:6px 0">{escape(rec.rendered_code)}</pre>
 </details>"""
 
-        detail_cards += f"""
+            detail_cards += f"""
 <details style="border:2px solid {border_color};border-radius:10px;margin:10px 0;padding:0 14px;background:#fff">
   <summary style="cursor:pointer;padding:12px 0;display:flex;align-items:center;gap:10px">
     <span style="font-weight:700;font-family:monospace;font-size:1rem">{escape(rec.test_id)}</span>
     <span style="background:{score_color}22;color:{score_color};border:1px solid {score_color}66;
-border-radius:20px;padding:2px 10px;font-size:0.8rem;font-weight:700">
-      {rec.contract_score:.0%}
-    </span>
-    {"<span style=\"background:#f87171;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.75rem\">BLOCKED</span>" if rec.is_blocked else ""}
-    {"<span style=\"background:#22c55e22;color:#16a34a;border-radius:4px;padding:1px 6px;font-size:0.75rem\">PASSED</span>" if rec.exec_status == "passed" else ""}
-    {"<span style=\"background:#f8717122;color:#dc2626;border-radius:4px;padding:1px 6px;font-size:0.75rem\">FAILED</span>" if rec.exec_status == "failed" else ""}
+border-radius:20px;padding:2px 10px;font-size:0.8rem;font-weight:700">{rec.contract_score:.0%}</span>
+    {"<span style='background:#f87171;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.75rem'>BLOCKED</span>" if rec.is_blocked else ""}
+    {"<span style='background:#22c55e22;color:#16a34a;border-radius:4px;padding:1px 6px;font-size:0.75rem'>PASSED</span>" if rec.exec_status == "passed" else ""}
+    {"<span style='background:#f8717122;color:#dc2626;border-radius:4px;padding:1px 6px;font-size:0.75rem'>FAILED</span>" if rec.exec_status == "failed" else ""}
     <span style="margin-left:auto;font-size:0.75rem;color:#94a3b8">▼ expand for 8-section detail</span>
   </summary>
   <div style="padding:4px 0 16px 0">
     {exec_banner}
     {viol_html}
-    <h4 style="margin:12px 0 6px 0;font-size:0.9rem;color:#475569;text-transform:uppercase;
-letter-spacing:.05em">📋 8-Section Contract Detail</h4>
+    <h4 style="margin:12px 0 6px 0;font-size:0.9rem;color:#475569;text-transform:uppercase;letter-spacing:.05em">
+      📋 8-Section Contract Detail
+    </h4>
     {section_rows_html}
     {code_html}
   </div>
 </details>"""
 
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>UTF 8-Section Contract Report</title>
-  <style>
-    body{{font-family:system-ui,sans-serif;margin:0;padding:0;background:#f8fafc;color:#1e293b}}
-    .container{{max-width:1200px;margin:0 auto;padding:24px}}
-    h1{{font-size:1.5rem;margin-bottom:4px}}
-    .meta{{color:#64748b;font-size:0.85rem;margin-bottom:24px}}
-    .kpi-strip{{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}}
-    .kpi{{background:#fff;border-radius:12px;padding:16px 24px;box-shadow:0 1px 3px rgba(0,0,0,.08);min-width:140px}}
-    .kpi-value{{font-size:2rem;font-weight:700}}
-    .kpi-label{{font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}}
-    table{{border-collapse:collapse;width:100%}}
-    th{{background:#1e293b;color:#fff;padding:6px 10px;font-size:0.8rem}}
-    td{{border:1px solid #e2e8f0;padding:4px 6px}}
-    section{{background:#fff;border-radius:12px;padding:20px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,.08)}}
-    h2{{font-size:1.1rem;margin-top:0}}
-    .avg-row{{background:#f1f5f9;font-weight:bold}}
-    details > summary{{list-style:none}}
-    details > summary::-webkit-details-marker{{display:none}}
-    details[open] > summary .toggle-hint::after{{content:" ▲"}}
-    details > summary .toggle-hint::after{{content:" ▼"}}
-    pre{{font-family:"Fira Code","Cascadia Code","Consolas",monospace}}
-  </style>
-</head>
-<body>
-<div class="container">
-  <h1>🧪 UTF — 8-Section Contract Report</h1>
-  <div class="meta">Generated: {ts} &nbsp;|&nbsp; Language: {escape(report.language)}
-    &nbsp;|&nbsp; Framework: {escape(report.framework)}
-    &nbsp;|&nbsp; Test type: {escape(report.test_type)}
-    &nbsp;|&nbsp; Report v{report.report_version}</div>
-
-  <!-- KPI Strip -->
+        contract_section_html = f"""
+  <!-- Contract KPI Strip -->
   <div class="kpi-strip">
     <div class="kpi">
       <div class="kpi-value" style="color:{kpi_col}">{suite_pct}</div>
       <div class="kpi-label">Suite Contract Score</div>
     </div>
     <div class="kpi">
-      <div class="kpi-value">{report.test_count}</div>
-      <div class="kpi-label">Tests Generated</div>
+      <div class="kpi-value">{len(generated_recs)}</div>
+      <div class="kpi-label">Tests (UTF-Generated)</div>
     </div>
     <div class="kpi">
       <div class="kpi-value" style="color:{'#f87171' if report.blocked_count else '#22c55e'}">{report.blocked_count}</div>
       <div class="kpi-label">Blocked (Contract)</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-value">{exec_pct}</div>
-      <div class="kpi-label">Execution Pass Rate</div>
     </div>
     <div class="kpi">
       <div class="kpi-value" style="color:#f87171;font-size:1rem">{escape(weakest_name)}</div>
@@ -564,9 +669,63 @@ letter-spacing:.05em">📋 8-Section Contract Detail</h4>
 
   <!-- Per-test Detail Cards -->
   <section>
-    <h2>📄 Per-Test Detail</h2>
+    <h2>📄 Per-Test Contract Detail</h2>
     {detail_cards}
-  </section>
+  </section>"""
+
+    # ════════════════════════════════════════════════════════════════════════
+    # Page title + mode indicator
+    # ════════════════════════════════════════════════════════════════════════
+    if imported_recs and not generated_recs:
+        title_badge = "Execution Results Report"
+        title_icon  = "🚀"
+    elif generated_recs and not imported_recs:
+        title_badge = "8-Section Contract Report"
+        title_icon  = "🧪"
+    else:
+        title_badge = "Contract + Execution Report"
+        title_icon  = "🧪"
+
+    lang_fw = escape(report.language)
+    if report.framework:
+        lang_fw += f" / {escape(report.framework)}"
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UTF — {title_badge}</title>
+  <style>
+    body{{font-family:system-ui,sans-serif;margin:0;padding:0;background:#f8fafc;color:#1e293b}}
+    .container{{max-width:1200px;margin:0 auto;padding:24px}}
+    h1{{font-size:1.5rem;margin-bottom:4px}}
+    .meta{{color:#64748b;font-size:0.85rem;margin-bottom:24px}}
+    .kpi-strip{{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}}
+    .kpi{{background:#fff;border-radius:12px;padding:16px 24px;box-shadow:0 1px 3px rgba(0,0,0,.08);min-width:140px}}
+    .kpi-value{{font-size:2rem;font-weight:700}}
+    .kpi-label{{font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}}
+    table{{border-collapse:collapse;width:100%}}
+    th{{background:#1e293b;color:#fff;padding:6px 10px;font-size:0.8rem}}
+    td{{border:1px solid #e2e8f0;padding:4px 6px}}
+    section{{background:#fff;border-radius:12px;padding:20px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,.08)}}
+    h2{{font-size:1.1rem;margin-top:0}}
+    .avg-row{{background:#f1f5f9;font-weight:bold}}
+    details > summary{{list-style:none}}
+    details > summary::-webkit-details-marker{{display:none}}
+    pre{{font-family:"Fira Code","Cascadia Code","Consolas",monospace}}
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>{title_icon} UTF — {title_badge}</h1>
+  <div class="meta">
+    Generated: {ts} &nbsp;|&nbsp; Language: {lang_fw}
+    &nbsp;|&nbsp; Test type: {escape(report.test_type)}
+    &nbsp;|&nbsp; Report v{report.report_version}
+  </div>
+
+  {exec_section_html}
+  {contract_section_html}
 </div>
 </body>
 </html>"""

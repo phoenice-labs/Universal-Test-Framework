@@ -1,0 +1,58 @@
+# Jest framework rules
+framework: jest
+language: ["javascript", "typescript"]
+version: ">=29.0"
+
+setup:
+  config_file: "jest.config.ts or jest.config.js"
+  install: "npm install --save-dev jest @types/jest ts-jest"
+
+test_structure:
+  describe: "describe('{Feature}', () => {"
+  test: "it('{behavior}', async () => {"
+  nested: "describe blocks can be nested for sub-features"
+
+lifecycle:
+  setup: ["beforeAll", "beforeEach"]
+  teardown: ["afterAll", "afterEach"]
+
+matchers:
+  equality: ["toBe", "toEqual", "toStrictEqual"]
+  truthiness: ["toBeTruthy", "toBeFalsy", "toBeNull", "toBeUndefined"]
+  numbers: ["toBeGreaterThan", "toBeLessThan", "toBeCloseTo"]
+  strings: ["toMatch", "toContain"]
+  arrays: ["toContain", "toHaveLength"]
+  exceptions: ["toThrow", "toThrowError"]
+  async: ["resolves", "rejects"]
+  mocks: ["toHaveBeenCalled", "toHaveBeenCalledWith", "toHaveBeenCalledTimes"]
+
+mocking:
+  module: "jest.mock('./module')"
+  function: "jest.fn()"
+  spy: "jest.spyOn(object, 'method')"
+  timer: "jest.useFakeTimers()"
+  reset: "jest.clearAllMocks() / jest.resetAllMocks()"
+
+parametrize:
+  each_array: "test.each([[1, 2], [3, 4]])('test %d + %d', (a, b) => {"
+  each_table: "test.each`a | b`({ a, b } => {"
+
+coverage:
+  provider: "v8 or babel"
+  reporters: ["text", "html", "json", "lcov"]
+  thresholds_config: "jest.config coverage.thresholds"
+
+contract_comment_template: |
+  /**
+   * Test ID: {test_id}
+   * Why Generated: {why_generated}
+   * Requirement Mapping: {requirement_mapping}
+   * How it Exercises:
+   *   GIVEN: {given}
+   *   WHEN: {when}
+   *   THEN: {then}
+   * Coverage: {coverage_contribution}
+   * Expected Outcome: {expected_outcome}
+   * Gaps: {gaps_missing}
+   * Meaningfulness: {meaningfulness_check}
+   */
