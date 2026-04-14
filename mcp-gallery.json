@@ -6,13 +6,16 @@
   "license": "MIT",
   "homepage": "https://github.com/phoenice-labs/Universal-Test-Framework",
   "icon": "https://raw.githubusercontent.com/phoenice-labs/Universal-Test-Framework/main/assets/utf-icon.png",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "server": {
     "type": "stdio",
     "description": "UTF MCP server — polyglot test generation with 8-section contract enforcement",
     "command": "uvx",
     "args": ["--from", "universal-test-framework", "utf-server", "--transport", "stdio"],
-    "env": {}
+    "cwd": "${workspaceFolder}",
+    "env": {
+      "UTF_PROJECT_DIR": "${workspaceFolder}"
+    }
   },
   "tools": [
     {
@@ -56,6 +59,14 @@
       "description": "Query the persistent test registry for existing tests"
     },
     {
+      "name": "import_test_results",
+      "description": "Import JUnit XML execution results into the UTF registry"
+    },
+    {
+      "name": "register_contracts",
+      "description": "Parse test file, extract per-method 8-section blocks, register as generated contracts"
+    },
+    {
       "name": "feedback_status",
       "description": "Get gap analysis, coverage health, and trend report"
     }
@@ -66,7 +77,11 @@
         "type": "stdio",
         "description": "Universal Test Framework — polyglot test generation with 8-section contract",
         "command": "uvx",
-        "args": ["--from", "universal-test-framework", "utf-server", "--transport", "stdio"]
+        "args": ["--from", "universal-test-framework", "utf-server", "--transport", "stdio"],
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "UTF_PROJECT_DIR": "${workspaceFolder}"
+        }
       }
     },
     "note": "Requires uv (https://docs.astral.sh/uv). Paste the above entry into your VS Code mcp.json servers block."

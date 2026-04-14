@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "universal-test-framework"
-version = "1.0.0"
+version = "1.0.1"
 description = "Universal polyglot test generation framework with 8-section contract enforcement"
 readme = "README.md"
 requires-python = ">=3.11"

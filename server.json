@@ -1,0 +1,77 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.phoenice-labs/universal-test-framework",
+  "description": "Polyglot MCP test generation with 8-section contract — Python, TS, Java, Go, C++.",
+  "repository": {
+    "url": "https://github.com/phoenice-labs/Universal-Test-Framework",
+    "source": "github"
+  },
+  "version": "1.0.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "universal-test-framework",
+      "version": "1.0.1",
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "--transport"
+        },
+        {
+          "type": "positional",
+          "value": "stdio"
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      },
+      "_notes": [
+        "Registry isolation: the MCP registry schema does not support a cwd field.",
+        "Set UTF_PROJECT_DIR env var to your project root for per-project SQLite isolation,",
+        "OR pass project_dir explicitly to every tool call (e.g. generate_tests, query_registry).",
+        "Example mcp.json entry with project isolation:",
+        "{",
+        "  'utf': {",
+        "    'type': 'stdio',",
+        "    'command': 'uvx',",
+        "    'args': ['--from', 'universal-test-framework', 'utf-server', '--transport', 'stdio'],",
+        "    'cwd': '${workspaceFolder}',",
+        "    'env': { 'UTF_PROJECT_DIR': '${workspaceFolder}' }",
+        "  }",
+        "}"
+      ]
+    }
+  ]
+}
+
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "--transport"
+        },
+        {
+          "type": "positional",
+          "value": "stdio"
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      },
+      "_notes": [
+        "Registry isolation: the MCP registry schema does not support a cwd field.",
+        "Set UTF_PROJECT_DIR env var to your project root for per-project SQLite isolation,",
+        "OR pass project_dir explicitly to every tool call (e.g. generate_tests, query_registry).",
+        "Example mcp.json entry with project isolation:",
+        "{",
+        "  'utf': {",
+        "    'type': 'stdio',",
+        "    'command': 'uvx',",
+        "    'args': ['--from', 'universal-test-framework', 'utf-server', '--transport', 'stdio'],",
+        "    'cwd': '${workspaceFolder}',",
+        "    'env': { 'UTF_PROJECT_DIR': '${workspaceFolder}' }",
+        "  }",
+        "}"
+      ]
+    }
+  ]
+}

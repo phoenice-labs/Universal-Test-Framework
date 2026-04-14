@@ -1,6 +1,6 @@
 """
 server.py — Universal Test Framework MCP Server
-Exposes 6 MCP tools via FastMCP.
+Exposes 13 MCP tools via FastMCP.
 Supports two transports:
   - stdio (default) — for local VS Code / Copilot integration
   - HTTP/SSE        — for remote/team deployment (--transport http)
@@ -13,9 +13,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import time
+from pathlib import Path as _Path
 from typing import Any, Optional
 
 _SERVER_START_TIME = time.monotonic()
@@ -35,11 +37,30 @@ from .tools.analyze_coverage import analyze_coverage as _analyze_coverage
 from .tools.build_traceability import build_traceability_matrix as _build_traceability
 from .tools.suggest_types import suggest_test_types as _suggest_types
 from .tools.generate_report import generate_report as _generate_report
+from .tools.import_results import import_test_results as _import_test_results
+from .tools.register_contracts import register_contracts as _register_contracts
 from .engine.language_detector import detect_language_and_framework as _detect_lang
 
 # ─── Create the MCP server instance ─────────────────────────────────────────
 
 mcp = FastMCP(name="Universal Test Framework")
+
+
+def _resolve_project_dir(project_dir: Optional[str]) -> Optional[_Path]:
+    """Resolve project directory with UTF_PROJECT_DIR env var fallback.
+
+    Priority order (highest to lowest):
+      1. Explicit ``project_dir`` argument passed by the caller.
+      2. ``UTF_PROJECT_DIR`` environment variable (useful for Docker / MCP
+         registry setups where cwd templating is not available).
+      3. None — tool implementations fall back to ``Path.cwd()``.
+    """
+    if project_dir:
+        return _Path(project_dir)
+    env_dir = os.environ.get("UTF_PROJECT_DIR")
+    if env_dir:
+        return _Path(env_dir)
+    return None
 
 
 # ─── Helper: parse markdown test content into contract dict ──────────────────
@@ -105,6 +126,7 @@ def generate_tests(
     language: Optional[str] = None,
     framework: Optional[str] = None,
     file_path: Optional[str] = None,
+    project_dir: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Generate a complete test suite satisfying the 8-section test contract.
@@ -127,6 +149,9 @@ def generate_tests(
         framework: Override framework detection. One of:
                    pytest | jest | junit5 | go-test | playwright | k6
         file_path: File path hint for language detection (e.g., 'src/auth.py')
+        project_dir: Absolute path to the caller's project root. The SQLite registry
+                     and reports will be stored under <project_dir>/.utf/. Defaults to
+                     the current working directory of the MCP client process.
 
     Returns:
         suite_code: Complete executable test file
@@ -138,6 +163,7 @@ def generate_tests(
         validation_errors: Non-empty if any test failed contract validation
         blocked: True if validation errors prevent output (contract enforcement)
     """
+    resolved = _resolve_project_dir(project_dir)
     return _generate_tests(
         test_type=test_type,
         source_code=source_code,
@@ -145,6 +171,7 @@ def generate_tests(
         language=language,
         framework=framework,
         file_path=file_path,
+        project_dir=str(resolved) if resolved else None,
     )
 
 
@@ -312,10 +339,11 @@ def health() -> dict[str, Any]:
         "service": "Universal Test Framework",
         "version": "1.0.0",
         "uptime_s": round(time.monotonic() - _SERVER_START_TIME, 1),
-        "tools": 11,  # generate_tests, validate_contract, analyze_coverage,
+        "tools": 13,  # generate_tests, validate_contract, analyze_coverage,
                      # build_traceability_matrix, suggest_test_types,
                      # detect_language_framework, health, query_registry,
-                     # run_tests, run_mutation_tests, feedback_status
+                     # run_tests, run_mutation_tests, feedback_status,
+                     # import_test_results, generate_report
     }
 
 
@@ -328,6 +356,7 @@ def query_registry(
     language: Optional[str] = None,
     status: Optional[str] = None,
     requirement_id: Optional[str] = None,
+    project_dir: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Query the UTF persistent test registry.
@@ -338,6 +367,9 @@ def query_registry(
         language:       Filter by language (python | typescript | …)
         status:         Filter by status (generated | executed | failed | gap)
         requirement_id: Filter tests that cover a specific requirement ID
+        project_dir:    Absolute path to the caller's project root. Points the
+                        registry query at <project_dir>/.utf/utf.db. Defaults to
+                        the current working directory of the MCP client process.
 
     Returns:
         results: matching test records, coverage_summary, gaps, total_matching
@@ -347,15 +379,17 @@ def query_registry(
         coverage_summary as _cs,
         gap_analysis as _ga,
     )
+    cwd = _resolve_project_dir(project_dir)
     results = _qr(
         project_id=project_id,
         test_type=test_type,
         language=language,
         status=status,
         requirement_id=requirement_id,
+        cwd=cwd,
     )
-    summary = _cs(project_id=project_id)
-    gaps = _ga(project_id=project_id)
+    summary = _cs(project_id=project_id, cwd=cwd)
+    gaps = _ga(project_id=project_id, cwd=cwd)
     return {
         "results": results,
         "coverage_summary": summary,
@@ -392,27 +426,27 @@ def run_tests(
     from mcp_server.execution.runner import run_tests as _run
     from mcp_server.execution.ci_reporter import format_ci_report
     from mcp_server.registry.registry_engine import get_registry
-    from pathlib import Path
 
+    resolved_dir = _resolve_project_dir(project_dir)
     results = []
     for tf in test_files:
         r = _run(
             tf,
             language=language,
             framework=framework or "",
-            project_dir=project_dir,
+            project_dir=str(resolved_dir) if resolved_dir else project_dir,
             timeout=timeout_seconds,
         )
         results.append(r)
         # Best-effort registry update
         try:
-            reg = get_registry(Path(project_dir) if project_dir else None)
+            reg = get_registry(resolved_dir)
             status = "executed" if r.success else "failed"
             reg  # registry reference kept for future upsert integration
         except Exception:
             pass
 
-    report = format_ci_report(results, project_id=Path(project_dir or ".").name)
+    report = format_ci_report(results, project_id=(resolved_dir or _Path(".")).name)
     return report
 
 
@@ -479,6 +513,7 @@ def feedback_status(
     check_gaps: bool = True,
     compute_trend: bool = True,
     trend_days: int = 30,
+    project_dir: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Get UTF feedback loop status: gap analysis, coverage health, trend, and delta requirements.
@@ -489,6 +524,9 @@ def feedback_status(
         check_gaps:    Run gap analysis and coverage health check (default: True)
         compute_trend: Compute coverage trend over time (default: True)
         trend_days:    Number of days of history to include in trend (default: 30)
+        project_dir:   Absolute path to the caller's project root. Points the
+                       registry at <project_dir>/.utf/utf.db. Defaults to the
+                       current working directory of the MCP client process.
 
     Returns:
         gap_analysis, coverage_health, trend, and/or delta depending on arguments
@@ -497,19 +535,66 @@ def feedback_status(
     from mcp_server.feedback.trend_reporter import get_coverage_trend
     from mcp_server.feedback.delta_generator import get_delta_requirements
 
+    cwd = _resolve_project_dir(project_dir)
+
     result: dict[str, Any] = {"project_id": project_id}
 
     if check_gaps:
-        result["gap_analysis"] = check_and_reopen_gaps(project_id=project_id)
-        result["coverage_health"] = compute_coverage_health(project_id=project_id)
+        result["gap_analysis"] = check_and_reopen_gaps(project_id=project_id, cwd=cwd)
+        result["coverage_health"] = compute_coverage_health(project_id=project_id, cwd=cwd)
 
     if compute_trend:
-        result["trend"] = get_coverage_trend(project_id=project_id, days=trend_days)
+        result["trend"] = get_coverage_trend(project_id=project_id, days=trend_days, cwd=cwd)
 
     if requirements:
-        result["delta"] = get_delta_requirements(requirements, project_id=project_id)
+        result["delta"] = get_delta_requirements(requirements, project_id=project_id, cwd=cwd)
 
     return result
+
+
+# ─── Tool 12: generate_report ────────────────────────────────────────────────
+
+@mcp.tool()
+def import_test_results(
+    junit_xml_path: str,
+    project_dir: Optional[str] = None,
+    test_type: str = "e2e",
+    language: str = "python",
+    framework: str = "pytest",
+    project_id: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Import JUnit XML execution results into the UTF registry.
+
+    Use this when you have already run tests with pytest / Maven / Go and want
+    to register the results so that generate_report shows real pass/fail rates.
+
+    Typical workflow:
+      1. Run tests:  python -m pytest tests/ --junit-xml=utf-tests/reports/results.xml
+      2. Import:     import_test_results("utf-tests/reports/results.xml")
+      3. Report:     generate_report()
+
+    Args:
+        junit_xml_path: Path to the JUnit XML file (absolute or relative to project_dir).
+        project_dir:    Absolute path to caller's project root. Registry stored at
+                        <project_dir>/.utf/utf.db. Defaults to UTF_PROJECT_DIR or cwd.
+        test_type:      Test type label (unit|integration|api|e2e|...). Default: e2e
+        language:       Language label (python|typescript|...). Default: python
+        framework:      Framework label (pytest|jest|...). Default: pytest
+        project_id:     Override project name in registry (defaults to project_dir name).
+
+    Returns:
+        imported, passed, failed, skipped counts; registry path; next_step hint.
+    """
+    resolved = _resolve_project_dir(project_dir)
+    return _import_test_results(
+        junit_xml_path=junit_xml_path,
+        project_dir=str(resolved) if resolved else None,
+        test_type=test_type,
+        language=language,
+        framework=framework,
+        project_id=project_id,
+    )
 
 
 # ─── Tool 12: generate_report ────────────────────────────────────────────────
@@ -552,7 +637,75 @@ def generate_report(
         formats=formats,
         open_html=open_html,
         project_id=project_id,
-        cwd=cwd,
+        cwd=str(_resolve_project_dir(cwd)) if _resolve_project_dir(cwd) else cwd,
+    )
+
+
+# ─── Tool 13: register_contracts ────────────────────────────────────────────
+
+@mcp.tool()
+def register_contracts(
+    test_files: list[str],
+    project_dir: Optional[str] = None,
+    project_id: Optional[str] = None,
+    test_type: str = "e2e",
+    language: str = "python",
+    framework: str = "pytest",
+) -> dict[str, Any]:
+    """
+    Parse test files and register per-method 8-section contract records.
+
+    This is the UTF registration bridge — it reads LLM-written test files,
+    extracts the per-method 8-section comment blocks, and upserts
+    status=generated rows into the UTF registry.  Without this step,
+    generate_report has no Per-Test Contract Detail cards.
+
+    IMPORTANT — Phase 1, Step ③ of the UTF 3-phase workflow:
+      ① generate_tests (scaffold)
+      ② Write real test methods with per-method TC-{PRJ}-{MODULE}-{NNN} blocks
+      ③ register_contracts  ← this tool
+      ④ generate_report (verify contract detail cards)
+      ⑤ pytest --junit-xml=...
+      ⑥ import_test_results
+      ⑦ generate_report (now shows both contract cards AND execution results)
+
+    Each test METHOD must have an inline comment block with this structure:
+        # ─── TC-FIQ-HLT-001 ──────────────────────────────────────────────
+        # WHY_GENERATED: <business rationale ≥ 50 chars>
+        # REQUIREMENT_MAPPING: REQ-E2E-001
+        # HOW_IT_EXERCISES: GIVEN ... WHEN ... THEN ...
+        # COVERAGE_CONTRIBUTION: Line coverage of X module; ~N%
+        # EXPECTED_OUTCOME: HTTP 200; body["status"] == "ok"
+        # GAPS_MISSING: Does not test ... ; no auth tested
+        # MEANINGFULNESS_CHECK: Meaningful — <why not redundant>
+        # ─────────────────────────────────────────────────────────────────
+    Class docstrings are NOT used — contract is per method, not per class.
+
+    Args:
+        test_files:  List of test file paths (absolute or relative to project_dir).
+        project_dir: Absolute path to project root (.utf/utf.db lives here).
+                     Defaults to UTF_PROJECT_DIR env var or cwd.
+        project_id:  Registry project label. Defaults to project_dir basename.
+        test_type:   One of unit|integration|api|e2e|... Default: e2e
+        language:    One of python|typescript|java|go|... Default: python
+        framework:   One of pytest|jest|junit5|... Default: pytest
+
+    Returns:
+        registered:   Number of test methods upserted into the registry.
+        low_score:    Count of tests that scored below 0.85 (need fixing).
+        files_parsed: Resolved file paths that were processed.
+        registry:     Absolute path to utf.db.
+        summary:      Per-file breakdown {file, tests, low_score, low_score_ids}.
+        next_step:    Phase 2 reminder.
+    """
+    resolved = _resolve_project_dir(project_dir)
+    return _register_contracts(
+        test_files=test_files,
+        project_dir=str(resolved) if resolved else None,
+        project_id=project_id,
+        test_type=test_type,
+        language=language,
+        framework=framework,
     )
 
 
@@ -597,7 +750,7 @@ Examples:
 
     if args.transport == "stdio":
         print("Starting Universal Test Framework MCP Server (stdio)...", file=sys.stderr)
-        mcp.run(transport="stdio")
+        mcp.run(transport="stdio", show_banner=False)
     else:
         print(
             f"Starting Universal Test Framework MCP Server (HTTP) on {args.host}:{args.port}...",
