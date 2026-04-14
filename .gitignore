@@ -39,6 +39,8 @@ coverage.xml
 *.log
 server_err.log
 server_out.log
+stderr.txt
+stdout.txt
 
 # Build tools
 .mypy_cache/
