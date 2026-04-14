@@ -8,6 +8,8 @@ UTF is an **MCP server and contract enforcement engine**. It does not replace yo
 [![Python](https://img.shields.io/pypi/pyversions/universal-test-framework)](https://pypi.org/project/universal-test-framework/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+<!-- mcp-name: io.github.phoenice-labs/universal-test-framework -->
+
 ---
 
 ## Why UTF? (Not Another Test Generator)

@@ -6,7 +6,7 @@
   "license": "MIT",
   "homepage": "https://github.com/phoenice-labs/Universal-Test-Framework",
   "icon": "https://raw.githubusercontent.com/phoenice-labs/Universal-Test-Framework/main/assets/utf-icon.png",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "server": {
     "type": "stdio",
     "description": "UTF MCP server — polyglot test generation with 8-section contract enforcement",
@@ -87,3 +87,4 @@
     "note": "Requires uv (https://docs.astral.sh/uv). Paste the above entry into your VS Code mcp.json servers block."
   }
 }
+
