@@ -1,0 +1,57 @@
+# Contract test type rules
+test_type: contract
+description: "Consumer-driven contract tests that verify the interface between services"
+
+scope:
+  target: "Service-to-service interfaces (REST, messaging, gRPC)"
+  approach: "Consumer-Driven Contract Testing (CDC)"
+  consumer_role: "Defines the contract (what it expects from the provider)"
+  provider_role: "Verifies it satisfies all consumer contracts"
+
+tools:
+  primary: "Pact (pact-python, pact-js, pact-jvm, pact-go)"
+  java_alternative: "Spring Cloud Contract"
+  broker: "Pact Broker (self-hosted or pactflow.io)"
+
+consumer_side:
+  define_interactions: true    # Consumer defines expected request/response pairs
+  generate_pact_file: true     # pact.json generated from consumer tests
+  publish_to_broker: true      # Pact published to broker after consumer tests pass
+  matchers: "Use Pact matchers (like, eachLike, term) for flexible matching"
+
+provider_side:
+  verify_against_broker: true  # Provider fetches and verifies all consumer pacts
+  provider_states: true        # Provider must implement all provider states
+  publish_verification: true   # Publish verification result to broker
+  can_i_deploy: true           # Use 'can-i-deploy' before deployment
+
+required_scenarios:
+  - happy_path_interaction      # Normal successful interaction
+  - missing_optional_fields     # Provider omits optional fields — consumer handles gracefully
+  - extra_fields                # Provider adds new fields — consumer ignores gracefully
+  - error_responses             # Provider returns 4xx/5xx — consumer handles
+
+contract_evolution:
+  consumer_adds_field: "Consumers add new expectations in new consumer contract version"
+  provider_adds_field: "OK — consumers must tolerate new fields (Postel's Law)"
+  provider_removes_field: "Must check all consumer contracts — breaking change"
+  backwards_compatibility: "Use semantic versioning for contract versions"
+
+coverage_targets:
+  consumer_contracts: 100      # All consumer contracts must be defined
+  provider_verification: 100   # All published pacts must be verified by provider
+  provider_states: 100         # All provider states must be implemented
+
+anti_patterns:
+  - "Provider-driven contracts (wrong direction)"
+  - "Testing internal implementation, not the contract"
+  - "Not publishing pacts to a broker"
+  - "Manual contract files without automation"
+  - "Using exact matching instead of Pact matchers"
+
+contract_additions:
+  consumer_name: "Name of the consuming service"
+  provider_name: "Name of the providing service"
+  interaction_description: "Human-readable description of the interaction"
+  provider_state: "State the provider must be in for this interaction"
+  pact_specification_version: "Usually 2 or 3"

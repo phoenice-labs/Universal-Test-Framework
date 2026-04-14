@@ -1,0 +1,46 @@
+/**
+ * Test ID        : {{ test_id }}
+ * Why Generated  : {{ why_generated }}
+ * Requirement    : {{ requirement_mapping }}
+ * How it Exercises:
+ *   GIVEN {{ given }}
+ *   WHEN  {{ when }}
+ *   THEN  {{ then }}
+ * Coverage       : {{ coverage_contribution }}
+ * Expected Outcome: {{ expected_outcome }}
+ * Gaps           : {{ gaps_missing }}
+ * Meaningfulness : {{ meaningfulness_check }}
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@DisplayName("{{ test_display_name }}: {{ test_id }}")
+class {{ FuncName }}SecurityTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Test
+    @DisplayName("Unauthenticated request should be rejected")
+    void test{{ FuncName }}Unauthenticated() throws Exception {
+        // ── GIVEN — no authentication ─────────────────────────────────────
+        {{ given_code | default('// no credentials / token provided') }};
+
+        // ── WHEN + THEN ────────────────────────────────────────────────────
+        mockMvc.perform(
+                get("/api/v1/resource")  // TODO: replace path and HTTP method
+                    .contentType(MediaType.APPLICATION_JSON)
+            )
+            {{ assertion_code | default('.andExpect(status().isUnauthorized())') }};
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    @DisplayName("Insufficient role should receive 403 Forbidden")
+    void test{{ FuncName }}Forbidden() throws Exception {
+        mockMvc.perform(
+                get("/api/v1/admin-resource")  // TODO: replace with protected path
+                    .contentType(MediaType.APPLICATION_JSON)
+            )
+            .andExpect(status().isForbidden());
+    }
+}

@@ -1,0 +1,23 @@
+/**
+ * Test ID        : {{ test_id }}
+ * Why Generated  : {{ why_generated }}
+ * Requirement    : {{ requirement_mapping }}
+ * How it Exercises:
+ *   GIVEN {{ given }}
+ *   WHEN  {{ when }}
+ *   THEN  {{ then }}
+ * Coverage       : {{ coverage_contribution }}
+ * Expected Outcome: {{ expected_outcome }}
+ * Gaps           : {{ gaps_missing }}
+ * Meaningfulness : {{ meaningfulness_check }}
+ */
+it('{{ test_id }}: {{ test_display_name }}', async () => {
+  // ── GIVEN — malicious / boundary input ──────────────────────────────────
+  {{ given_code | default("const maliciousInput = \"' OR 1=1 --\";  // SQL injection payload") }};
+
+  // ── WHEN ──────────────────────────────────────────────────────────────
+  const act = async () => {{ call_expression | default('await functionUnderTest(maliciousInput)') }};
+
+  // ── THEN — expect rejection or sanitised output ───────────────────────
+  {{ assertion_code | default('await expect(act()).rejects.toThrow();') }}
+});

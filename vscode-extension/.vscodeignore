@@ -1,0 +1,6 @@
+# VS Code Extension — files to exclude from VSIX package
+node_modules/
+src/
+tsconfig.json
+.vscode-test/
+*.vsix

@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "universal-test-framework"
+version = "1.0.0"
+description = "Universal polyglot test generation framework with 8-section contract enforcement"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE*"]
+keywords = ["testing", "mcp", "test-generation", "traceability", "copilot", "ai-testing", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
+dependencies = [
+    "fastmcp>=3.0.0",
+    "pyyaml==6.0.2",
+    "jinja2==3.1.4",
+    "pydantic>=2.11.0",
+    "httpx>=0.28.1",
+    "uvicorn>=0.29.0",
+    "starlette>=0.37.2",
+    "rich>=13.9.4",
+    "click>=8.1.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.2.0",
+    "pytest-asyncio==0.23.6",
+    "pytest-cov==5.0.0",
+    "ruff==0.4.4",
+    "mypy==1.10.0",
+    "types-pyyaml==6.0.12.20240311",
+]
+
+[project.urls]
+Homepage = "https://github.com/phoenice-labs/Universal-Test-Framework"
+Repository = "https://github.com/phoenice-labs/Universal-Test-Framework"
+Documentation = "https://github.com/phoenice-labs/Universal-Test-Framework#readme"
+"Bug Tracker" = "https://github.com/phoenice-labs/Universal-Test-Framework/issues"
+Changelog = "https://github.com/phoenice-labs/Universal-Test-Framework/releases"
+
+[project.scripts]
+utf-server = "mcp_server.server:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mcp_server*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

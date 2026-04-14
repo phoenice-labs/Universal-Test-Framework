@@ -1,0 +1,48 @@
+# Go language rules
+language: go
+version_support: ["1.20", "1.21", "1.22", "1.23"]
+default_framework: go-test
+
+test_file_conventions:
+  naming_pattern: "{module}_test.go"
+  directory: "same package directory"
+  discovery: "go test ./..."
+
+import_style: 'import "testing"'
+
+assertion_style:
+  preferred: "t.Errorf / t.Fatalf"
+  library: "testify/assert or testify/require"
+  example: 'assert.Equal(t, expected, actual, "message")'
+
+mock_libraries: ["testify/mock", "gomock", "mockery", "httptest"]
+
+fixture_style: "TestMain / t.Cleanup"
+
+async_support:
+  pattern: "goroutine + sync.WaitGroup or channels"
+  timeout: "t.Parallel() + context.WithTimeout"
+
+parametrize: "table-driven tests ([]struct{ name, input, expected })"
+
+test_id_comment_style: |
+  // Test ID: TC-REQ-001
+  // Why Generated: ...
+  // Requirement Mapping: US-001, AC-1.1
+  // How it Exercises: GIVEN ... WHEN ... THEN ...
+  // Coverage: branch coverage, validation logic
+  // Expected Outcome: returns nil error, response matches
+  // Gaps: does not test concurrent requests
+  // Meaningfulness: meaningful — directly validates AC-1.1
+
+coverage_tool: "go test -cover"
+coverage_report_flag: "go test -coverprofile=coverage.out -covermode=atomic ./..."
+
+security_tools: ["gosec", "staticcheck", "govulncheck", "semgrep"]
+type_checking: "built-in static typing"
+
+template_variables:
+  test_function_prefix: "Test"
+  benchmark_prefix: "Benchmark"
+  example_prefix: "Example"
+  build_tags: "//go:build unit / integration / e2e"

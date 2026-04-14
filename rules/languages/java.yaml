@@ -1,0 +1,53 @@
+# Java language rules
+language: java
+version_support: ["11", "17", "21"]
+default_framework: junit5
+
+test_file_conventions:
+  naming_pattern: "{ClassName}Test.java"
+  directory: "src/test/java/{package}/"
+  discovery: "Maven Surefire / Gradle test task"
+
+import_style: "import org.junit.jupiter.api.*;"
+
+assertion_style:
+  preferred: "assertThat(actual).isEqualTo(expected)  // AssertJ"
+  junit5: "assertEquals(expected, actual, 'message')"
+  matcher_libraries: ["AssertJ", "Hamcrest", "Truth"]
+
+mock_libraries: ["Mockito", "PowerMock", "WireMock", "MockServer", "TestContainers"]
+
+fixture_style: "@BeforeEach / @BeforeAll / @AfterEach / @AfterAll"
+
+async_support:
+  pattern: "CompletableFuture + awaitility"
+  timeout: "@Timeout(value = 5, unit = TimeUnit.SECONDS)"
+
+parametrize: "@ParameterizedTest + @MethodSource / @CsvSource / @ValueSource"
+
+test_id_comment_style: |
+  /**
+   * Test ID: TC-REQ-001
+   * Why Generated: ...
+   * Requirement Mapping: US-001, AC-1.1
+   * How it Exercises: GIVEN ... WHEN ... THEN ...
+   * Coverage: branch coverage, validation logic
+   * Expected Outcome: returns 200, response body matches schema
+   * Gaps: does not test concurrent requests
+   * Meaningfulness: meaningful — directly validates AC-1.1
+   */
+
+coverage_tool: "JaCoCo"
+coverage_report_flag: "maven: jacoco:report / gradle: jacocoTestReport"
+
+security_tools: ["SpotBugs", "OWASP Dependency Check", "Semgrep", "Checkmarx"]
+type_checking: "javac strict mode"
+
+build_tools: ["maven", "gradle"]
+
+template_variables:
+  test_class_suffix: "Test"
+  test_method_prefix: "test"
+  annotations: ["@Test", "@DisplayName", "@Tag", "@Disabled", "@Nested"]
+  tags: ["unit", "integration", "api", "e2e", "slow", "security", "performance"]
+  spring_test: "@SpringBootTest / @WebMvcTest / @DataJpaTest"

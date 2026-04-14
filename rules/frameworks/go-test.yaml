@@ -1,0 +1,69 @@
+# Go test framework rules
+framework: go-test
+language: go
+version: ">=1.20"
+
+setup:
+  install: "Built-in. Add: go get github.com/stretchr/testify"
+  config: "No separate config — uses go test flags"
+
+test_structure:
+  function: "func Test{Name}(t *testing.T) {"
+  table_driven: |
+    tests := []struct {
+        name  string
+        input Type
+        want  Type
+    }{
+        {"case_name", inputVal, expectedVal},
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got := FunctionUnderTest(tt.input)
+            assert.Equal(t, tt.want, got)
+        })
+    }
+  subtests: "t.Run('subtest name', func(t *testing.T) {"
+  parallel: "t.Parallel() // at the start of test or subtest"
+  benchmark: "func Benchmark{Name}(b *testing.B) { for i := 0; i < b.N; i++ {"
+  example: "func Example{Name}() { // Output: expected_output }"
+
+lifecycle:
+  setup: "TestMain(m *testing.M) for suite-level setup"
+  cleanup: "t.Cleanup(func() { // cleanup })"
+  temp_dir: "t.TempDir() // auto-cleaned"
+
+assertions:
+  testify: "assert.Equal(t, expected, actual, 'message')"
+  require: "require.Equal(t, expected, actual) // fatal on fail"
+  error: "assert.NoError(t, err) / assert.EqualError(t, err, 'msg')"
+  panic: "assert.Panics(t, func() { code })"
+
+mocking:
+  httptest: "httptest.NewRecorder() + httptest.NewServer()"
+  interface: "testify/mock or gomock"
+  env: "os.Setenv + t.Cleanup(func(){ os.Unsetenv })"
+
+coverage:
+  run: "go test -coverprofile=coverage.out -covermode=atomic ./..."
+  view_html: "go tool cover -html=coverage.out"
+  view_func: "go tool cover -func=coverage.out"
+
+build_tags:
+  unit: "//go:build unit"
+  integration: "//go:build integration"
+  e2e: "//go:build e2e"
+  run_unit: "go test -tags=unit ./..."
+
+contract_comment_template: |
+  // Test ID: {test_id}
+  // Why Generated: {why_generated}
+  // Requirement Mapping: {requirement_mapping}
+  // How it Exercises:
+  //   GIVEN: {given}
+  //   WHEN: {when}
+  //   THEN: {then}
+  // Coverage: {coverage_contribution}
+  // Expected Outcome: {expected_outcome}
+  // Gaps: {gaps_missing}
+  // Meaningfulness: {meaningfulness_check}

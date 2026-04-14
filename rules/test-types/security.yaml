@@ -1,0 +1,113 @@
+# Security test type rules
+test_type: security
+description: "Tests that verify the system's resistance to attacks and compliance with security controls"
+
+scope:
+  target: "API endpoints, authentication flows, data handling, dependencies"
+  approach: "Automated DAST, SAST, dependency scanning, and manual security testing"
+  compliance: "OWASP Top 10, OWASP LLM Top 10 (for AI features), CWE Top 25"
+
+owasp_top10_coverage:
+  required: true
+  categories:
+    A01_broken_access_control:
+      tests:
+        - "Unauthenticated access to protected resource returns 401"
+        - "Authenticated user cannot access another user's resource (IDOR)"
+        - "Privilege escalation: standard user cannot access admin endpoint"
+        - "Horizontal privilege escalation between same-role users"
+
+    A02_cryptographic_failures:
+      tests:
+        - "Passwords stored using bcrypt/argon2 (not MD5/SHA1/plaintext)"
+        - "Sensitive data encrypted at rest"
+        - "TLS 1.2+ enforced, TLS 1.0/1.1 rejected"
+        - "Secrets not exposed in API responses or logs"
+
+    A03_injection:
+      tests:
+        - "SQL injection attempt returns 400, not 500 or data"
+        - "NoSQL injection attempt handled safely"
+        - "Command injection attempt blocked"
+        - "XSS payload in input is escaped on output"
+        - "LDAP injection handled safely"
+
+    A04_insecure_design:
+      tests:
+        - "Rate limiting enforced on authentication endpoints"
+        - "Account lockout after N failed attempts"
+        - "Password reset tokens expire and are single-use"
+
+    A05_security_misconfiguration:
+      tests:
+        - "Default credentials rejected"
+        - "Directory listing disabled"
+        - "Security headers present: HSTS, X-Content-Type-Options, X-Frame-Options, CSP"
+        - "Error responses do not expose stack traces or system info"
+        - "Debug mode disabled in production"
+
+    A06_vulnerable_components:
+      tests:
+        - "Dependency scan with no known critical/high CVEs"
+        - "Container image scan passes"
+        - "Third-party JS does not include known malicious versions"
+
+    A07_authentication_failures:
+      tests:
+        - "JWT signature validated — tampered token rejected"
+        - "JWT expiry enforced"
+        - "Session invalidated on logout"
+        - "Brute force protection on login"
+        - "MFA bypass not possible"
+
+    A08_data_integrity:
+      tests:
+        - "Unsigned/unverified data from external sources rejected"
+        - "Deserialization of untrusted data blocked"
+
+    A09_logging_failures:
+      tests:
+        - "Authentication events logged (success and failure)"
+        - "Authorization failures logged"
+        - "Sensitive data not logged in plaintext"
+        - "Log injection (newline injection) blocked"
+
+    A10_ssrf:
+      tests:
+        - "URL input validation rejects internal network addresses"
+        - "Requests to localhost/169.254.0.0/172.16.0.0 blocked"
+
+owasp_llm_top10:
+  applicable_when: "AI/LLM features present"
+  categories:
+    - "LLM01: Prompt injection — user input cannot override system prompt"
+    - "LLM02: Insecure output handling — raw LLM output not rendered to DOM"
+    - "LLM06: Sensitive information disclosure — PII/secrets not in LLM output"
+    - "LLM08: Excessive agency — agent tools limited to allowlist"
+
+tools:
+  sast: ["bandit (Python)", "semgrep", "SonarQube", "Checkmarx", "CodeQL"]
+  dast: ["OWASP ZAP", "Burp Suite", "Nuclei"]
+  dependency: ["safety (Python)", "npm-audit (Node)", "govulncheck (Go)", "dependency-check (Java)", "trivy"]
+  secrets: ["truffleHog", "gitleaks", "detect-secrets"]
+  containers: ["trivy", "grype", "snyk container"]
+  llm: ["garak", "pyrit", "promptbench"]
+
+penetration_testing:
+  required_for: "tier_1_critical modules, public-facing APIs, auth systems"
+  frequency: "Before major releases, after significant architecture changes"
+  scope_document: "Define scope, rules of engagement before testing"
+
+contract_additions:
+  attack_vector: "The specific attack being tested (e.g., SQL injection via query param)"
+  owasp_category: "OWASP category reference (e.g., A03:2021 Injection)"
+  cwe_id: "CWE ID if applicable (e.g., CWE-89: SQL Injection)"
+  risk_level: "Critical | High | Medium | Low"
+  remediation_if_fails: "What action to take if this test fails"
+
+anti_patterns:
+  - "Security tests that only verify status code, not actual security behavior"
+  - "Tests with real credentials or production tokens"
+  - "Tests that modify production data"
+  - "Skipping authentication bypass tests because 'our code is trusted'"
+  - "Not testing CORS policies"

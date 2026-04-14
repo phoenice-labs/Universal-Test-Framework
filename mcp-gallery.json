@@ -1,0 +1,74 @@
+{
+  "name": "Universal Test Framework (UTF)",
+  "description": "Polyglot test generation framework enforcing the 8-section test contract. Generates unit, integration, API, E2E, security, performance, and contract tests across Python, TypeScript, Java, Go, and C++. Works with zero local clone via uvx.",
+  "publisher": "utf",
+  "categories": ["testing", "code-quality", "developer-tools"],
+  "license": "MIT",
+  "homepage": "https://github.com/phoenice-labs/Universal-Test-Framework",
+  "icon": "https://raw.githubusercontent.com/phoenice-labs/Universal-Test-Framework/main/assets/utf-icon.png",
+  "version": "1.0.0",
+  "server": {
+    "type": "stdio",
+    "description": "UTF MCP server — polyglot test generation with 8-section contract enforcement",
+    "command": "uvx",
+    "args": ["--from", "universal-test-framework", "utf-server", "--transport", "stdio"],
+    "env": {}
+  },
+  "tools": [
+    {
+      "name": "generate_tests",
+      "description": "Generate a complete test suite satisfying the 8-section test contract"
+    },
+    {
+      "name": "validate_test_contract",
+      "description": "Validate any test against the 8-section contract (score 0–1)"
+    },
+    {
+      "name": "suggest_test_types",
+      "description": "Analyze code and recommend test types with rationale"
+    },
+    {
+      "name": "analyze_coverage",
+      "description": "Identify coverage gaps in an existing test suite"
+    },
+    {
+      "name": "build_traceability_matrix",
+      "description": "Build a requirements → tests traceability matrix"
+    },
+    {
+      "name": "detect_language_framework",
+      "description": "Auto-detect programming language and test framework"
+    },
+    {
+      "name": "generate_report",
+      "description": "Generate HTML/JUnit/JSON contract compliance report"
+    },
+    {
+      "name": "run_tests",
+      "description": "Execute test files and return structured CI results"
+    },
+    {
+      "name": "run_mutation_tests",
+      "description": "Run mutation testing and return mutation score"
+    },
+    {
+      "name": "query_registry",
+      "description": "Query the persistent test registry for existing tests"
+    },
+    {
+      "name": "feedback_status",
+      "description": "Get gap analysis, coverage health, and trend report"
+    }
+  ],
+  "quickstart": {
+    "vscode_mcp_entry": {
+      "utf": {
+        "type": "stdio",
+        "description": "Universal Test Framework — polyglot test generation with 8-section contract",
+        "command": "uvx",
+        "args": ["--from", "universal-test-framework", "utf-server", "--transport", "stdio"]
+      }
+    },
+    "note": "Requires uv (https://docs.astral.sh/uv). Paste the above entry into your VS Code mcp.json servers block."
+  }
+}

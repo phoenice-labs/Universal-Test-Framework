@@ -1,0 +1,77 @@
+{
+  "name": "universal-test-framework",
+  "displayName": "Universal Test Framework (UTF)",
+  "description": "8-section test contract enforcement — generate, validate, and report tests via @utf commands",
+  "version": "0.1.0",
+  "publisher": "utf",
+  "repository": { "type": "git", "url": "https://github.com/phoenice-labs/Universal-Test-Framework" },
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Testing", "AI"],
+  "keywords": ["testing", "mcp", "copilot", "utf", "test-generation"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "utf",
+        "name": "utf",
+        "description": "Universal Test Framework — generate, validate and report tests following the 8-section contract",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "generate-tests",
+            "description": "Generate tests: unit | api | integration | e2e | security | contract | performance"
+          },
+          {
+            "name": "validate-contract",
+            "description": "Validate a test against the 8-section contract"
+          },
+          {
+            "name": "coverage-gaps",
+            "description": "Analyze coverage gaps in the current test suite"
+          },
+          {
+            "name": "traceability",
+            "description": "Build a requirements-to-tests traceability matrix"
+          },
+          {
+            "name": "report",
+            "description": "Generate the UTF contract compliance HTML report"
+          },
+          {
+            "name": "status",
+            "description": "Show UTF server health and current project test status"
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "utf.openReport",
+        "title": "UTF: Open Contract Report",
+        "category": "UTF"
+      },
+      {
+        "command": "utf.generateTests",
+        "title": "UTF: Generate Tests for Active File",
+        "category": "UTF"
+      },
+      {
+        "command": "utf.showStatus",
+        "title": "UTF: Show Server Status",
+        "category": "UTF"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.4.0"
+  }
+}

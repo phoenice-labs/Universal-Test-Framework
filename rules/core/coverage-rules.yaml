@@ -1,0 +1,133 @@
+# =============================================================================
+# Universal Test Framework — Coverage Rules
+# Version: 1.0.0
+# Defines minimum coverage thresholds per test type, language, and module tier.
+# =============================================================================
+
+coverage:
+  version: "1.0.0"
+
+  # Global defaults (overridden by test-type or language-specific rules)
+  defaults:
+    line_coverage_minimum: 80
+    branch_coverage_minimum: 70
+    mutation_score_minimum: 60
+    enforce_uncovered_reporting: true
+    fail_build_below_threshold: true
+
+  # Per test-type thresholds
+  by_test_type:
+    unit:
+      line_coverage_minimum: 90
+      branch_coverage_minimum: 85
+      mutation_score_minimum: 70
+      description: "Unit tests are the primary coverage driver"
+      tools:
+        python: ["pytest-cov", "coverage.py", "mutmut"]
+        typescript: ["jest --coverage", "c8", "stryker"]
+        java: ["jacoco", "pit"]
+        go: ["go test -cover", "go-mutesting"]
+
+    integration:
+      line_coverage_minimum: 75
+      branch_coverage_minimum: 65
+      mutation_score_minimum: 50
+      description: "Integration tests focus on component interaction, not exhaustive branch coverage"
+      tools:
+        python: ["pytest-cov"]
+        typescript: ["jest --coverage"]
+        java: ["jacoco"]
+        go: ["go test -cover"]
+
+    api:
+      line_coverage_minimum: 80
+      branch_coverage_minimum: 70
+      schema_coverage_minimum: 95   # % of API endpoints covered
+      http_status_coverage: ["200", "201", "400", "401", "403", "404", "422", "500"]
+      description: "API tests must cover all documented endpoints and all specified status codes"
+      tools:
+        all: ["schemathesis", "dredd", "postman/newman"]
+
+    e2e:
+      user_journey_coverage_minimum: 100   # % of documented user journeys
+      happy_path_required: true
+      failure_path_required: true
+      description: "E2E tests must cover all documented user journeys"
+      tools:
+        web: ["playwright", "cypress", "selenium"]
+        mobile: ["detox", "appium"]
+
+    contract:
+      consumer_contracts_coverage: 100   # All consumer contracts must be tested
+      provider_verification_required: true
+      description: "Contract tests must verify all consumer contracts against providers"
+      tools:
+        all: ["pact", "spring-cloud-contract"]
+
+    performance:
+      baseline_required: true
+      sla_compliance_required: true
+      metrics_required: ["p50_ms", "p95_ms", "p99_ms", "throughput_rps", "error_rate_pct"]
+      default_thresholds:
+        p95_ms: 500
+        p99_ms: 1000
+        error_rate_pct: 1.0
+        throughput_rps: 100
+      description: "Performance tests must establish baselines and verify SLA compliance"
+      tools:
+        all: ["k6", "locust", "gatling", "jmeter", "artillery"]
+
+    security:
+      owasp_categories_required:
+        - "injection"
+        - "broken_authentication"
+        - "sensitive_data_exposure"
+        - "broken_access_control"
+        - "security_misconfiguration"
+        - "xss"
+        - "insecure_deserialization"
+        - "components_known_vulnerabilities"
+        - "insufficient_logging"
+      llm_owasp_categories:
+        - "prompt_injection"
+        - "insecure_output_handling"
+        - "sensitive_information_disclosure"
+        - "excessive_agency"
+      description: "Security tests must cover applicable OWASP Top 10 categories"
+      tools:
+        all: ["zap", "bandit", "semgrep", "trivy", "garak", "pyrit"]
+
+  # Module tier thresholds (critical code demands higher coverage)
+  by_module_tier:
+    tier_1_critical:
+      description: "Authentication, authorization, payment, PII handling"
+      line_coverage_minimum: 95
+      branch_coverage_minimum: 90
+      mutation_score_minimum: 80
+      require_security_tests: true
+
+    tier_2_core:
+      description: "Business logic, data transformation, API handlers"
+      line_coverage_minimum: 85
+      branch_coverage_minimum: 75
+      mutation_score_minimum: 65
+
+    tier_3_supporting:
+      description: "Utilities, helpers, configuration"
+      line_coverage_minimum: 70
+      branch_coverage_minimum: 60
+      mutation_score_minimum: 50
+
+    tier_4_infrastructure:
+      description: "Logging, monitoring, scaffolding"
+      line_coverage_minimum: 60
+      branch_coverage_minimum: 50
+      mutation_score_minimum: 40
+
+  # Coverage report formats
+  reporting:
+    formats: ["html", "json", "xml", "lcov"]
+    include_uncovered_lines: true
+    include_branch_details: true
+    badge_generation: true
+    fail_fast: false   # Report all failures, don't stop at first

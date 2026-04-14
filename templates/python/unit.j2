@@ -1,0 +1,22 @@
+# =============================================================================
+# Test ID        : {{ test_id }}
+# Why Generated  : {{ why_generated }}
+# Requirement    : {{ requirement_mapping }}
+# How it Exercises:
+#   GIVEN {{ given }}
+#   WHEN  {{ when }}
+#   THEN  {{ then }}
+# Coverage       : {{ coverage_contribution }}
+# Expected Outcome: {{ expected_outcome }}
+# Gaps           : {{ gaps_missing }}
+# Meaningfulness : {{ meaningfulness_check }}
+# =============================================================================
+def test_{{ func_name }}({% if context.test_type == 'integration' %}db_session{% endif %}):
+    # ── GIVEN ────────────────────────────────────────────────────────────────
+    {{ given_code | default('# Set up preconditions and test fixtures') }}
+
+    # ── WHEN ─────────────────────────────────────────────────────────────────
+    result = {{ call_expression | default('function_under_test(input_value)') }}
+
+    # ── THEN ─────────────────────────────────────────────────────────────────
+    {{ assertion_code | default('assert result is not None, "Expected non-None result"') }}

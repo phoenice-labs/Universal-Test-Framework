@@ -1,0 +1,31 @@
+# =============================================================================
+# Test ID         : {{ test_id }}
+# Why Generated   : {{ why_generated }}
+# Requirement     : {{ requirement_mapping }}
+# How it Exercises:
+#   GIVEN {{ given }}
+#   WHEN  {{ when }}
+#   THEN  {{ then }}
+# Coverage        : {{ coverage_contribution }}
+# Expected Outcome: {{ expected_outcome }}
+# Gaps            : {{ gaps_missing }}
+# Meaningfulness  : {{ meaningfulness_check }}
+# =============================================================================
+def test_{{ func_name }}(client):
+    # ── GIVEN ────────────────────────────────────────────────────────────────
+    {{ given_code | default('# Prepare request payload and authentication headers') }}
+    headers = {"Authorization": "Bearer <test-token>", "Content-Type": "application/json"}
+    payload = {{ payload | default('{"key": "value"}') }}
+
+    # ── WHEN ─────────────────────────────────────────────────────────────────
+    response = client.{{ http_method | default('post') }}(
+        "{{ endpoint | default('/api/v1/resource') }}",
+        json=payload,
+        headers=headers,
+    )
+
+    # ── THEN ─────────────────────────────────────────────────────────────────
+    assert response.status_code == {{ expected_status | default('200') }}, (
+        f"Expected {{ expected_status | default('200') }}, got {response.status_code}: {response.text}"
+    )
+    {{ assertion_code | default('assert response.json() is not None, "Response body should not be empty"') }}

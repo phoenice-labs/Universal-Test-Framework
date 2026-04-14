@@ -1,0 +1,27 @@
+// Test ID        : {{ test_id }}
+// Why Generated  : {{ why_generated }}
+// Requirement    : {{ requirement_mapping }}
+// How it Exercises:
+//   GIVEN {{ given }}
+//   WHEN  {{ when }}
+//   THEN  {{ then }}
+// Coverage       : {{ coverage_contribution }}
+// Expected Outcome: {{ expected_outcome }}
+// Gaps           : {{ gaps_missing }}
+// Meaningfulness : {{ meaningfulness_check }}
+func Test{{ FuncName }}API(t *testing.T) {
+	// ── GIVEN ──────────────────────────────────────────────────────────────
+	handler := http.HandlerFunc({{ call_expression | default('YourHandler') }})
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	{{ given_code | default('// configure request payload and headers') }}
+
+	// ── WHEN ───────────────────────────────────────────────────────────────
+	resp, err := http.Get(server.URL + {{ '"/api/v1/resource"' }})
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// ── THEN ───────────────────────────────────────────────────────────────
+	{{ assertion_code | default('assert.Equal(t, http.StatusOK, resp.StatusCode)') }}
+}

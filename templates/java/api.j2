@@ -1,0 +1,29 @@
+/**
+ * Test ID        : {{ test_id }}
+ * Why Generated  : {{ why_generated }}
+ * Requirement    : {{ requirement_mapping }}
+ * How it Exercises:
+ *   GIVEN {{ given }}
+ *   WHEN  {{ when }}
+ *   THEN  {{ then }}
+ * Coverage       : {{ coverage_contribution }}
+ * Expected Outcome: {{ expected_outcome }}
+ * Gaps           : {{ gaps_missing }}
+ * Meaningfulness : {{ meaningfulness_check }}
+ */
+@Test
+@DisplayName("{{ test_display_name }}: {{ test_id }}")
+void test{{ FuncName }}() throws Exception {
+    // ── GIVEN ──────────────────────────────────────────────────────────────
+    {{ given_code | default('// TODO: configure MockMvc and any stubbed services') }};
+
+    // ── WHEN + THEN ────────────────────────────────────────────────────────
+    mockMvc.perform(
+            get("/api/TODO") // TODO: replace method + path
+                .contentType(MediaType.APPLICATION_JSON)
+                // .content("{\"key\": \"value\"}")
+        )
+        // {{ assertion_code | default('.andExpect(status().isOk())') }}
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+}

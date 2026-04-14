@@ -1,0 +1,57 @@
+# pytest framework rules
+framework: pytest
+language: python
+version: ">=7.0"
+
+setup:
+  config_file: "pytest.ini or pyproject.toml [tool.pytest.ini_options]"
+  install: "pip install pytest pytest-cov pytest-mock pytest-asyncio"
+
+test_structure:
+  function_based: "def test_{name}(fixture1, fixture2):"
+  class_based: "class Test{Feature}: def test_{name}(self, ...):"
+  async: "async def test_{name}(): with @pytest.mark.asyncio"
+
+fixtures:
+  builtin: ["tmp_path", "monkeypatch", "capsys", "caplog", "request"]
+  scope: "function (default) | class | module | session"
+  conftest: "conftest.py for shared fixtures"
+
+markers:
+  builtin: ["skip", "skipif", "xfail", "parametrize", "usefixtures", "filterwarnings"]
+  custom: "register in pytest.ini [markers] section"
+
+parametrize:
+  syntax: "@pytest.mark.parametrize('arg1,arg2', [(v1, v2), ...])"
+  ids: "parametrize(..., ids=['case1', 'case2'])"
+
+assertions:
+  rewrite: "pytest rewrites assert statements for detailed failure output"
+  approx: "pytest.approx(expected, rel=1e-6)"
+  raises: "with pytest.raises(ExceptionType, match='pattern'):"
+
+plugins:
+  recommended:
+    - "pytest-cov: coverage"
+    - "pytest-mock: mocker fixture"
+    - "pytest-asyncio: async test support"
+    - "pytest-xdist: parallel test execution"
+    - "pytest-benchmark: performance micro-benchmarks"
+    - "pytest-timeout: per-test timeouts"
+    - "pytest-randomly: randomize test order"
+
+contract_comment_template: |
+  def test_{name}({fixtures}):
+      """
+      Test ID: {test_id}
+      Why Generated: {why_generated}
+      Requirement Mapping: {requirement_mapping}
+      How it Exercises:
+          GIVEN: {given}
+          WHEN: {when}
+          THEN: {then}
+      Coverage: {coverage_contribution}
+      Expected Outcome: {expected_outcome}
+      Gaps: {gaps_missing}
+      Meaningfulness: {meaningfulness_check}
+      """
